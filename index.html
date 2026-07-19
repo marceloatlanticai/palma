@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>PALMA — instrumento de poeira e luz</title>
+<style>
+  :root{
+    --bg:#04050a;
+    --grave:#ff8a3d;
+    --agudo:#6fe3ff;
+    --osso:#e9e3d2;
+    --txt:#ccd2e4;
+    --dim:#667090;
+    --panel:rgba(8,10,18,.82);
+    --line:rgba(120,132,170,.18);
+    --rec:#ff4d5e;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,"Roboto Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+    font-family:var(--mono);-webkit-font-smoothing:antialiased;
+    touch-action:none;user-select:none;-webkit-user-select:none}
+  #stage{position:fixed;inset:0;display:block;cursor:crosshair}
+  video{display:none}
+
+  header{position:fixed;top:0;left:0;right:0;display:flex;align-items:baseline;
+    justify-content:space-between;padding:14px 20px;pointer-events:none;z-index:5}
+  .brand{display:flex;align-items:baseline;gap:14px;pointer-events:auto}
+  .brand h1{font-size:15px;font-weight:700;letter-spacing:.55em;color:var(--txt)}
+  .brand h1 span{color:var(--grave)}
+  .brand h1 b{color:var(--agudo);font-weight:700}
+  .brand small{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+  #camState{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
+    pointer-events:auto;display:flex;align-items:center;gap:8px}
+  #camState .dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+  #camState.on .dot{background:#5ad07a;box-shadow:0 0 8px #5ad07a}
+  #camState.rec .dot{background:var(--rec);box-shadow:0 0 10px var(--rec);animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:.25}}
+
+  #panel{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
+    width:min(1020px,calc(100% - 20px));z-index:6;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    padding:10px 14px 12px}
+  #loopbar{position:relative;height:6px;border-radius:3px;background:rgba(120,132,170,.14);
+    overflow:hidden;margin-bottom:10px}
+  #loopbar .ticks{position:absolute;inset:0;display:flex}
+  #loopbar .ticks i{flex:1;border-right:1px solid rgba(120,132,170,.15)}
+  #loopbar .ticks i:nth-child(8n){border-right-color:rgba(200,210,240,.35)}
+  #playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--osso);
+    box-shadow:0 0 8px var(--osso);left:0}
+  #panel.recording{border-color:rgba(255,77,94,.55);box-shadow:0 0 26px rgba(255,77,94,.16)}
+
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .sep{width:1px;height:26px;background:var(--line);flex:none}
+  .lbl{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);flex:none}
+
+  button{font-family:var(--mono);background:transparent;color:var(--txt);
+    border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-size:11px;
+    letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .15s}
+  button:hover{border-color:rgba(200,210,240,.5)}
+  button:focus-visible{outline:2px solid var(--agudo);outline-offset:2px}
+  button.active{background:rgba(200,210,240,.12);border-color:rgba(200,210,240,.5)}
+
+  #btnRec{border-color:rgba(255,77,94,.5);color:var(--rec);font-weight:700;
+    display:flex;align-items:center;gap:8px}
+  #btnRec::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--rec)}
+  #btnRec.armed{background:rgba(255,77,94,.14)}
+  #btnRec.armed::before{animation:blink 1s steps(2) infinite}
+
+  .chip{padding:6px 10px;font-size:10px;border-radius:8px}
+  .chip.sel{background:rgba(233,227,210,.14);border-color:rgba(233,227,210,.6);color:var(--osso)}
+
+  .stepper{display:flex;align-items:center;gap:2px}
+  .stepper button{padding:6px 9px;border-radius:8px}
+  .stepper output{min-width:48px;text-align:center;font-size:12px;color:var(--osso)}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:96px;height:4px;border-radius:2px;
+    background:rgba(120,132,170,.3);outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:13px;height:13px;
+    border-radius:50%;background:var(--osso);box-shadow:0 0 6px rgba(233,227,210,.5)}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border:none;border-radius:50%;
+    background:var(--osso)}
+
+  #layers{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .layer{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;
+    padding:5px 6px 5px 10px;font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
+  .layer .sw{width:8px;height:8px;border-radius:2px;flex:none}
+  .layer.muted{opacity:.35}
+  .layer .x{border:none;padding:2px 5px;font-size:10px;color:var(--dim);border-radius:5px}
+  .layer .x:hover{color:var(--rec)}
+  #layersEmpty{font-size:10px;color:var(--dim);letter-spacing:.08em}
+
+  #intro{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 20% 80%, rgba(255,138,61,.07), transparent 55%),
+               radial-gradient(ellipse at 80% 20%, rgba(111,227,255,.07), transparent 55%),
+               var(--bg)}
+  #intro .card{max-width:580px;width:calc(100% - 40px);text-align:center;padding:20px}
+  #intro h1{font-size:clamp(46px,9vw,84px);font-weight:700;letter-spacing:.4em;margin-left:.4em;
+    background:linear-gradient(90deg,var(--grave) 25%,var(--osso) 50%,var(--agudo) 75%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:8px}
+  #intro .sub{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);margin-bottom:36px}
+  #intro ol{list-style:none;text-align:left;margin:0 auto 36px;max-width:440px;
+    display:grid;gap:14px}
+  #intro li{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;
+    font-size:12.5px;line-height:1.55;color:var(--txt)}
+  #intro li i{font-style:normal;width:26px;height:26px;border:1px solid var(--line);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dim)}
+  #intro li em{font-style:normal}
+  #intro li em.g{color:var(--grave)}
+  #intro li em.a{color:var(--agudo)}
+  #btnStart{font-size:13px;padding:13px 30px;border-radius:12px;font-weight:700;
+    border-color:rgba(233,227,210,.55);color:var(--osso);letter-spacing:.2em}
+  #btnStart:hover{background:rgba(233,227,210,.1)}
+  #introErr{margin-top:16px;font-size:11px;line-height:1.6;color:var(--rec);display:none}
+  #introNote{margin-top:22px;font-size:10px;line-height:1.7;color:var(--dim);letter-spacing:.04em}
+
+  @media (max-width:760px){
+    .lbl.opt,#loopbar{display:none}
+    #panel{padding:8px 10px}
+    input[type=range]{width:70px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+<video id="cam" playsinline muted></video>
+
+<header>
+  <div class="brand">
+    <h1><span>PAL</span>M<b>A</b></h1>
+    <small>cada dedo belisca sua corda &middot; deslize a mão para curvar a nota</small>
+  </div>
+  <div id="camState"><span class="dot"></span><span id="camStateTxt">câmera desligada</span></div>
+</header>
+
+<div id="panel">
+  <div id="loopbar"><div class="ticks"></div><div id="playhead"></div></div>
+  <div class="row">
+    <button id="btnRec" title="Gravar uma camada (R)">Gravar</button>
+    <button id="btnPlay" title="Tocar / parar o ciclo (espaço)">&#9654; Tocar</button>
+    <div id="layers"><span id="layersEmpty">nenhuma camada gravada</span></div>
+    <div class="sep"></div>
+    <span class="lbl">BPM</span>
+    <div class="stepper">
+      <button id="bpmDown">&minus;</button><output id="bpmOut">100</output><button id="bpmUp">+</button>
+    </div>
+    <div class="sep"></div>
+    <span class="lbl">Bateria</span>
+    <div class="row" id="styles" style="gap:5px"></div>
+    <input type="range" id="drumVol" min="0" max="100" value="75" title="Volume da bateria">
+    <div class="sep"></div>
+    <span class="lbl">Som</span>
+    <div class="row" id="soundChips" style="gap:5px"></div>
+    <div class="sep"></div>
+    <button id="btnMetro" class="chip" title="Metrônomo">Metrôn.</button>
+    <div class="sep"></div>
+    <span class="lbl">Grade</span>
+    <div class="row" id="quantChips" style="gap:5px"></div>
+    <span class="lbl">Dedos</span>
+    <div class="row" id="fingerChips" style="gap:5px"></div>
+    <span class="lbl">Cordas</span>
+    <div class="row" id="orientChips" style="gap:5px"></div>
+    <div class="sep"></div>
+    <span class="lbl opt">Sensibilidade</span>
+    <input type="range" id="sens" min="0" max="100" value="55" title="Sensibilidade da detecção">
+    <button id="btnHelp" class="chip" title="Instruções">?</button>
+  </div>
+</div>
+
+<div id="intro">
+  <div class="card">
+    <h1>PALMA</h1>
+    <div class="sub">um instrumento de poeira e luz</div>
+    <ol>
+      <li><i>1</i><span>Ligue a câmera e aguarde o <em>mapa da mão</em> carregar — o esqueleto dos seus dedos aparece desenhado em pontos de luz. Funciona com qualquer iluminação, mas no escuro a poeira fica mais bonita.</span></li>
+      <li><i>2</i><span>As cordas são um <em>teclado enrolado</em>: cada corda tem duas notas (metade esquerda e direita), subindo como as teclas do piano — e cada nota veste <em>a cor do seu tom</em> (Dó vermelho, Mi verde, Lá violeta…), escura no grave, clara no agudo. <em>Roce a mão</em> pelas cordas e elas sussurram em arpejo; <em>dobre o dedo num estalo</em> e a nota soa forte na grade do beat. Deslize para curvar em semitons. <em class="g">Esquerda: Lá2–Si4.</em> <em class="a">Direita: Lá4–Si6.</em></span></li>
+      <li><i>3</i><span>No painel, <em>Cordas</em> gira o instrumento: <em>↔</em> cordas deitadas, <em>↕</em> harpa em pé, <em>Teclas</em> um piano de duas oitavas. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
+    </ol>
+    <button id="btnStart">Ligar a câmera</button>
+    <div id="introErr"></div>
+    <div id="introNote">Na primeira vez, o mapa da mão é baixado da internet (alguns MB) e fica em cache.<br>Sem internet, o instrumento cai para o modo luz; sem câmera, arraste o mouse pelas cordas.</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================
+   PALMA v3 — instrumento de poeira e luz
+   · campo de pontilhismo (amostragem por rejeição, blueprint)
+   · escala vertical: grave embaixo -> agudo em cima
+   · mão esquerda = oitava grave, direita = oitava aguda
+   · ponta do dedo rastreada como o ponto mais alto da mão
+   ========================================================= */
+
+/* ---------- estado ---------- */
+const S = {
+  bpm: 100, playing: false, recording: false,
+  drumStyle: "baile", drumsOn: true, metro: false,
+  sens: 55, layers: [], recLayer: null, camOn: false, loopStart: 0,
+  quant: 2,        // grade ao vivo: 0=livre, 2=colcheia, 1=semicolcheia
+  fingerMode: 1,   // 1 = só o indicador belisca | 4 = todos os dedos
+  orient: "h",     // "h" = cordas horizontais | "v" = harpa (verticais)
+  timbre: "poeira",// poeira | cordas | piano | fuzz
+};
+const STEPS = 32;
+const stepDur = () => 60 / S.bpm / 4;
+const loopDur = () => stepDur() * STEPS;
+
+/* ---------- escala: teclado enrolado em linhas ----------
+   8 cordas x 2 células por mão = 16 notas cada, Lá menor natural
+   (as teclas brancas do piano a partir do Lá). Lê-se como texto:
+   embaixo-esquerda é o mais grave, sobe da esquerda p/ direita e
+   depois para a linha de cima. Esq: Lá2..Si4 · Dir: Lá4..Si6.
+   Cor = círculo cromático (Dó=vermelho, 30°/semitom);
+   luminosidade = registro (graves escuros, agudos claros). */
+const ROWS = 8, COLS = 2, NCELLS = ROWS * COLS;
+const AEOL = [0, 2, 3, 5, 7, 8, 10];
+const NOMES7 = ["Lá", "Si", "Dó", "Ré", "Mi", "Fá", "Sol"];
+const HZ = n => 440 * Math.pow(2, (n - 69) / 12);
+const rowY = i => .82 - i * .0943;        // y normalizado da corda i (0=grave)
+const stepMidi = (root, n) => root + 12 * Math.floor(n / 7) + AEOL[n % 7];
+const freqL = n => HZ(stepMidi(45, n));   // Lá2..Si4
+const freqR = n => HZ(stepMidi(69, n));   // Lá4..Si6
+const CELLS = { L: [], R: [] };
+for (const side of ["L", "R"]){
+  for (let n = 0; n < NCELLS; n++){
+    const midi = stepMidi(side === "L" ? 45 : 69, n);
+    const hue = (midi % 12) * 30;                       // Dó = 0° = vermelho
+    const l = side === "L" ? 26 + n * 1.1 : 55 + n * 1.4;
+    const s = side === "L" ? 82 : 72;
+    CELLS[side].push({
+      name: NOMES7[n % 7], hue, s, l,
+      css: "hsl(" + hue + "," + s + "%," + l + "%)",
+      hot: "hsl(" + hue + "," + Math.min(100, s + 8) + "%," + Math.min(88, l + 18) + "%)",
+    });
+  }
+}
+function cellRGBA(side, cell, a){
+  const c = CELLS[side][cell];
+  return "hsla(" + c.hue + "," + c.s + "%," + Math.min(82, c.l + 10) + "%," + a + ")";
+}
+/* ---------- geometria orientável ----------
+   "h": cordas horizontais (altura = corda, x = célula/posição)
+   "v": harpa — cordas verticais, graves à esq. subindo p/ agudos à dir.,
+        célula de baixo = nota-âncora, de cima = grau vizinho */
+const VERT = () => S.orient !== "h";       // eixo vertical (harpa e teclas)
+const PIANO = () => S.orient === "p";
+function strPos(side, i){           // coordenada fixa da corda/tecla i
+  if (!VERT()) return rowY(i);                       // y (horizontal)
+  if (PIANO()) return (side === "L" ? .07 : .57) + i * .0545;   // teclas
+  return (side === "L" ? .055 : .545) + i * .057;    // harpa
+}
+/* qual corda/tecla um índice de célula habita (p/ física e pulsos) */
+function cellRow(cell){
+  return PIANO() ? (cell < ROWS ? cell : cell % 7) : (cell >> 1);
+}
+const alongOf = (x, y) => VERT() ? y : x;
+function nearestString(side, x, y, tol){
+  let ri = -1, best = tol;
+  for (let i = 0; i < ROWS; i++){
+    const dd = VERT() ? Math.abs(x - strPos(side, i)) : Math.abs(y - rowY(i));
+    if (dd < best){ best = dd; ri = i; }
+  }
+  return ri;
+}
+/* célula ao longo da corda, com histerese na fronteira */
+function cellCol(side, x, y, prev){
+  if (!VERT()){
+    const b = side === "L" ? .25 : .75;
+    if (prev === 0) return x > b + .012 ? 1 : 0;
+    if (prev === 1) return x < b - .012 ? 0 : 1;
+    return x < b ? 0 : 1;
+  }
+  // vertical: embaixo (y grande) = célula 0, em cima = 1
+  if (prev === 0) return y < .488 ? 1 : 0;
+  if (prev === 1) return y > .512 ? 0 : 1;
+  return y > .50 ? 0 : 1;
+}
+
+/* ---------- áudio ---------- */
+let AC = null, master, comp, drumBus, metroBus, delaySend;
+function initAudio(){
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  comp = AC.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.ratio.value = 4; comp.knee.value = 8;
+  master = AC.createGain(); master.gain.value = .9;
+  drumBus = AC.createGain(); drumBus.gain.value = .75;
+  metroBus = AC.createGain(); metroBus.gain.value = .5;
+  master.connect(comp); comp.connect(AC.destination);
+  drumBus.connect(master); metroBus.connect(master);
+  // sala: delay global do blueprint (320ms, feedback .28, wet .3)
+  const dl = AC.createDelay(1); dl.delayTime.value = .32;
+  const fb = AC.createGain(); fb.gain.value = .28;
+  const wet = AC.createGain(); wet.gain.value = .3;
+  delaySend = AC.createGain(); delaySend.gain.value = 1;
+  delaySend.connect(dl); dl.connect(fb); fb.connect(dl);
+  dl.connect(wet); wet.connect(master);
+}
+function bassPoeira(freq, t, vel){
+  const v = vel || 1, soft = v < 1;
+  const o1 = AC.createOscillator(), o2 = AC.createOscillator(), o3 = AC.createOscillator();
+  o1.type = "sine"; o1.frequency.value = freq;
+  o2.type = "sawtooth"; o2.frequency.value = freq;
+  o3.type = "sine"; o3.frequency.value = freq * 2;   // oitava: o ouvido acha a nota
+  const f = AC.createBiquadFilter(); f.type = "lowpass";
+  f.frequency.setValueAtTime(220 + freq * 4, t);
+  f.frequency.exponentialRampToValueAtTime(150, t + .45);
+  const g = AC.createGain();
+  const dur = soft ? .4 : .75;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.72 * v, t + .01);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  const g3 = AC.createGain(); g3.gain.value = .22;
+  o1.connect(g); o2.connect(f); f.connect(g);
+  o3.connect(g3); g3.connect(g);
+  g.connect(master); g.connect(delaySend);
+  o1.start(t); o2.start(t); o3.start(t);
+  o1.stop(t + dur + .15); o2.stop(t + dur + .15); o3.stop(t + dur + .15);
+  return { parts: [[o1, 1], [o2, 1], [o3, 2]], f: freq, until: t + dur + .1, cents: 0 };
+}
+function pluckPoeira(freq, t, vel){
+  /* sino harmônico (celesta/kalimba): parciais puras em 1f, 2f, 3f
+     + leve desafinação de coro — quente e sempre consonante */
+  const v = vel || 1, soft = v < 1;
+  const g = AC.createGain();
+  const dur = soft ? .85 : 1.6;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.5 * v, t + .006);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass";
+  lp.frequency.value = soft ? 4200 : 6200;
+  g.connect(lp); lp.connect(master); lp.connect(delaySend);
+  const parts = [[1, .6], [2.001, .22], [2.997, .085], [1.004, .28]];
+  const voice = { parts: [], f: freq, until: t + dur - .05, cents: 0 };
+  for (const pa of parts){
+    const o = AC.createOscillator(); o.type = "sine"; o.frequency.value = freq * pa[0];
+    const og = AC.createGain(); og.gain.value = pa[1];
+    o.connect(og); og.connect(g);
+    o.start(t); o.stop(t + dur + .1);
+    voice.parts.push([o, pa[0]]);
+  }
+  if (!soft){
+    const sp = AC.createOscillator(); sp.type = "triangle"; sp.frequency.value = freq * 4;
+    const sg = AC.createGain();
+    sg.gain.setValueAtTime(.07, t);
+    sg.gain.exponentialRampToValueAtTime(.0001, t + .09);
+    sp.connect(sg); sg.connect(master);
+    sp.start(t); sp.stop(t + .11);
+  }
+  return voice;
+}
+/* ---------- timbres ---------- */
+function distCurve(amount){
+  distCurve.cache = distCurve.cache || {};
+  if (distCurve.cache[amount]) return distCurve.cache[amount];
+  const n = 1024, c = new Float32Array(n);
+  for (let i = 0; i < n; i++){
+    const x = i / (n - 1) * 2 - 1;
+    c[i] = Math.tanh(x * amount);
+  }
+  return distCurve.cache[amount] = c;
+}
+/* guitarra dedilhada: coro de osciladores + filtro que fecha ao longo
+   da nota (sem laço de feedback — imune a microfonia) */
+function pluckGuitar(freq, t, vel){
+  const v = vel || 1, soft = v < 1;
+  const dur = soft ? .7 : 1.3;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.42 * v, t + .005);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass";
+  lp.frequency.setValueAtTime(soft ? 2400 : 4600, t);
+  lp.frequency.exponentialRampToValueAtTime(soft ? 700 : 900, t + dur * .8);
+  lp.Q.value = .8;
+  g.connect(lp); lp.connect(master); lp.connect(delaySend);
+  const parts = [[1, .5, "triangle"], [1.003, .3, "triangle"],
+                 [.997, .22, "sawtooth"], [2.001, .12, "sine"]];
+  const voice = { parts: [], f: freq, until: t + dur - .05, cents: 0 };
+  for (const pa of parts){
+    const o = AC.createOscillator(); o.type = pa[2]; o.frequency.value = freq * pa[0];
+    const og = AC.createGain(); og.gain.value = pa[1];
+    o.connect(og); og.connect(g);
+    o.start(t); o.stop(t + dur + .1);
+    voice.parts.push([o, pa[0]]);
+  }
+  if (!soft){                              // transiente da palhetada
+    const nb = AC.createBufferSource(); nb.buffer = noiseBuf();
+    const nf = AC.createBiquadFilter(); nf.type = "highpass"; nf.frequency.value = 2500;
+    const ng = AC.createGain();
+    ng.gain.setValueAtTime(.12 * v, t);
+    ng.gain.exponentialRampToValueAtTime(.001, t + .015);
+    nb.connect(nf); nf.connect(ng); ng.connect(master);
+    nb.start(t); nb.stop(t + .02);
+  }
+  return voice;
+}
+/* contrabaixo acustico: fundamental + corpo ressoante + thump do dedo */
+function bassUpright(freq, t, vel){
+  const v = vel || 1, soft = v < 1;
+  const o1 = AC.createOscillator(); o1.type = "sine"; o1.frequency.value = freq;
+  const o2 = AC.createOscillator(); o2.type = "triangle"; o2.frequency.value = freq;
+  const o3 = AC.createOscillator(); o3.type = "sawtooth"; o3.frequency.value = freq;
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass";
+  lp.frequency.setValueAtTime(500, t);
+  lp.frequency.exponentialRampToValueAtTime(180, t + .3);
+  const body = AC.createBiquadFilter(); body.type = "peaking";
+  body.frequency.value = 160; body.Q.value = 1.1; body.gain.value = 6;
+  const g = AC.createGain();
+  const dur = soft ? .45 : .95;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.8 * v, t + .015);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  const g3 = AC.createGain(); g3.gain.value = .35;
+  o1.connect(g); o2.connect(g);
+  o3.connect(g3); g3.connect(lp); lp.connect(g);
+  g.connect(body); body.connect(master); g.connect(delaySend);
+  const nb = AC.createBufferSource(); nb.buffer = noiseBuf();
+  const nf = AC.createBiquadFilter(); nf.type = "lowpass"; nf.frequency.value = 300;
+  const ng = AC.createGain();
+  ng.gain.setValueAtTime(.35 * v, t);
+  ng.gain.exponentialRampToValueAtTime(.001, t + .05);
+  nb.connect(nf); nf.connect(ng); ng.connect(master);
+  o1.start(t); o2.start(t); o3.start(t); nb.start(t);
+  o1.stop(t + dur + .1); o2.stop(t + dur + .1); o3.stop(t + dur + .1);
+  nb.stop(t + .06);
+  return { parts: [[o1, 1], [o2, 1], [o3, 1]], f: freq, until: t + dur - .03, cents: 0 };
+}
+/* piano: parciais levemente inarmonicas + martelo + decaimento em 2 estagios */
+function pianoVoice(freq, t, vel, side){
+  const v = vel || 1, soft = v < 1;
+  const g = AC.createGain();
+  const dur = (side === "L" ? 2.0 : 1.5) * (soft ? .5 : 1);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.6 * v, t + .004);
+  g.gain.exponentialRampToValueAtTime(.2 * v, t + .16);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass";
+  lp.frequency.value = soft ? 2800 : (side === "L" ? 3400 : 5400);
+  g.connect(lp); lp.connect(master); lp.connect(delaySend);
+  const parts = [[1, .55], [2.004, .26], [3.01, .11], [4.02, .05]];
+  const voice = { parts: [], f: freq, until: t + dur - .05, cents: 0 };
+  for (const pa of parts){
+    const o = AC.createOscillator(); o.type = "sine"; o.frequency.value = freq * pa[0];
+    const og = AC.createGain(); og.gain.value = pa[1];
+    o.connect(og); og.connect(g);
+    o.start(t); o.stop(t + dur + .1);
+    voice.parts.push([o, pa[0]]);
+  }
+  if (!soft){
+    const nb = AC.createBufferSource(); nb.buffer = noiseBuf();
+    const nf = AC.createBiquadFilter(); nf.type = "bandpass";
+    nf.frequency.value = Math.min(4000, freq * 3); nf.Q.value = .7;
+    const ng = AC.createGain();
+    ng.gain.setValueAtTime(.18 * v, t);
+    ng.gain.exponentialRampToValueAtTime(.001, t + .02);
+    nb.connect(nf); nf.connect(ng); ng.connect(master);
+    nb.start(t); nb.stop(t + .03);
+  }
+  return voice;
+}
+/* fuzz: distorcao tanh — solo rasgado e baixo sujo com sub limpo */
+function pluckFuzz(freq, t, vel){
+  const v = vel || 1, soft = v < 1;
+  const o1 = AC.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = freq;
+  const o2 = AC.createOscillator(); o2.type = "square"; o2.frequency.value = freq * 1.005;
+  const pre = AC.createGain(); pre.gain.value = 2.6;
+  const ws = AC.createWaveShaper(); ws.curve = distCurve(4); ws.oversample = "2x";
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass";
+  lp.frequency.setValueAtTime(soft ? 1800 : 3000, t);
+  lp.frequency.exponentialRampToValueAtTime(1200, t + .5);
+  const g = AC.createGain();
+  const dur = soft ? .5 : .9;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.34 * v, t + .008);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  o1.connect(pre); o2.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g);
+  g.connect(master); g.connect(delaySend);
+  o1.start(t); o2.start(t); o1.stop(t + dur + .1); o2.stop(t + dur + .1);
+  return { parts: [[o1, 1], [o2, 1.005]], f: freq, until: t + dur - .03, cents: 0 };
+}
+function bassFuzz(freq, t, vel){
+  const v = vel || 1, soft = v < 1;
+  const sub = AC.createOscillator(); sub.type = "sine"; sub.frequency.value = freq;
+  const o1 = AC.createOscillator(); o1.type = "square"; o1.frequency.value = freq;
+  const o2 = AC.createOscillator(); o2.type = "sawtooth"; o2.frequency.value = freq;
+  const pre = AC.createGain(); pre.gain.value = 3.5;
+  const ws = AC.createWaveShaper(); ws.curve = distCurve(6); ws.oversample = "2x";
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 750;
+  const g = AC.createGain();
+  const dur = soft ? .45 : .85;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.5 * v, t + .01);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  const sg = AC.createGain(); sg.gain.value = .5;
+  o1.connect(pre); o2.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g);
+  sub.connect(sg); sg.connect(g);
+  g.connect(master); g.connect(delaySend);
+  sub.start(t); o1.start(t); o2.start(t);
+  sub.stop(t + dur + .1); o1.stop(t + dur + .1); o2.stop(t + dur + .1);
+  return { parts: [[sub, 1], [o1, 1], [o2, 1]], f: freq, until: t + dur - .03, cents: 0 };
+}
+/* despachantes: o resto do instrumento nao sabe qual timbre esta ativo */
+function playBass(freq, t, vel){
+  if (S.timbre === "cordas") return bassUpright(freq, t, vel);
+  if (S.timbre === "piano") return pianoVoice(freq, t, vel, "L");
+  if (S.timbre === "fuzz") return bassFuzz(freq, t, vel);
+  return bassPoeira(freq, t, vel);
+}
+function playPluck(freq, t, vel){
+  if (S.timbre === "cordas") return pluckGuitar(freq, t, vel);
+  if (S.timbre === "piano") return pianoVoice(freq, t, vel, "R");
+  if (S.timbre === "fuzz") return pluckFuzz(freq, t, vel);
+  return pluckPoeira(freq, t, vel);
+}
+function playKick(t, v = 1){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(42, t + .12);
+  g.gain.setValueAtTime(.95 * v, t);
+  g.gain.exponentialRampToValueAtTime(.001, t + .3);
+  o.connect(g); g.connect(drumBus); o.start(t); o.stop(t + .32);
+}
+function noiseBuf(){
+  if (noiseBuf.b) return noiseBuf.b;
+  const b = AC.createBuffer(1, AC.sampleRate * .5, AC.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return noiseBuf.b = b;
+}
+function playSnare(t, v = 1){
+  const n = AC.createBufferSource(); n.buffer = noiseBuf();
+  const f = AC.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1900; f.Q.value = .8;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(.6 * v, t);
+  g.gain.exponentialRampToValueAtTime(.001, t + .18);
+  const o = AC.createOscillator(); o.frequency.value = 190;
+  const og = AC.createGain();
+  og.gain.setValueAtTime(.3 * v, t);
+  og.gain.exponentialRampToValueAtTime(.001, t + .1);
+  n.connect(f); f.connect(g); g.connect(drumBus);
+  o.connect(og); og.connect(drumBus);
+  n.start(t); n.stop(t + .2); o.start(t); o.stop(t + .12);
+}
+function playHat(t, v = 1, open = false){
+  const n = AC.createBufferSource(); n.buffer = noiseBuf();
+  const f = AC.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 7500;
+  const g = AC.createGain();
+  const dur = open ? .28 : .05;
+  g.gain.setValueAtTime(.32 * v, t);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  n.connect(f); f.connect(g); g.connect(drumBus);
+  n.start(t); n.stop(t + dur + .02);
+}
+function playClick(t, accent){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.frequency.value = accent ? 1600 : 1050;
+  g.gain.setValueAtTime(.3, t);
+  g.gain.exponentialRampToValueAtTime(.001, t + .04);
+  o.connect(g); g.connect(metroBus); o.start(t); o.stop(t + .05);
+}
+
+/* ---------- estilos de bateria ---------- */
+function pat(k, s, h, ho){ return { k:new Set(k), s:new Set(s), h:new Set(h), ho:new Set(ho||[]) }; }
+const DRUMS = {
+  baile:   { name:"Baile",    p: pat([0,3,6,8,11,14, 16,19,22,24,27,30],[4,12,20,28],[2,10,18,26],[]) },
+  boombap: { name:"Boom bap", p: pat([0,7,10, 16,18,26],[4,12,20,28],[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],[]) },
+  house:   { name:"House",    p: pat([0,4,8,12,16,20,24,28],[4,12,20,28],[],[2,6,10,14,18,22,26,30]) },
+  funk:    { name:"Funk",     p: pat([0,2,10, 16,18,25],[4,12,20,28],[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31],[]) },
+  trap:    { name:"Trap",     p: pat([0,6,10, 16,21,26,30],[8,24],[0,2,4,6,8,10,12,13,14,15,16,18,20,22,24,26,28,29,30,31],[]) },
+  off:     { name:"Sem",      p: pat([],[],[],[]) },
+};
+
+/* ---------- notas: disparo, gravação, replay ---------- */
+function playNote(hand, cell, when){
+  if (!AC) return null;
+  const t = when || AC.currentTime;
+  return hand === "L" ? playBass(freqL(cell), t) : playPluck(freqR(cell), t);
+}
+/* ---------- slider de semitons ----------
+   Depois do beliscão, deslizar a mão na horizontal curva a nota
+   sounding em até ±2 semitons, com "imãs" suaves nos semitons exatos. */
+var voices = { L: [], R: [] };
+function bendCents(dx){
+  let c = Math.max(-200, Math.min(200, dx * 1200));
+  const q = Math.round(c / 100) * 100;
+  return q + (c - q) * .35;
+}
+function updateBends(){
+  if (!AC) return;
+  const tnow = AC.currentTime;
+  for (const side of ["L", "R"]){
+    const h = hands[side];
+    const vx = (visionMode === "mp" && h.px !== undefined) ? h.px : h.x;
+    const vs = voices[side];
+    for (let i = vs.length - 1; i >= 0; i--){
+      const v = vs[i];
+      if (tnow > v.until){ vs.splice(i, 1); continue; }
+      if (!h.on && !pointerOn) continue;
+      v.cents = bendCents(vx - v.x0);
+      const k = Math.pow(2, v.cents / 1200);
+      if (v.bend){ try{ v.bend(k); }catch(e){} }
+      else for (const pm of v.parts){
+        try{ pm[0].frequency.value = v.f * pm[1] * k; }catch(e){}
+      }
+    }
+  }
+}
+/* roçar: a ponta do dedo cruza uma célula nova e ela sussurra —
+   sem quantização (é gesto contínuo), sem gravação (é ornamento) */
+function triggerBrush(hand, cell, x){
+  initAudio();
+  const t = AC.currentTime;
+  const row = cellRow(cell);
+  if (hand === "L") playBass(freqL(cell), t, .28);
+  else playPluck(freqR(cell), t, .3);
+  plucks.push({ hand, row, x, t0: performance.now(),
+    dur: hand === "L" ? .5 : .85, amp: .4 });
+  rowPulse[hand][row] = Math.max(rowPulse[hand][row], .35);
+}
+function triggerNote(hand, cell, tipX){
+  initAudio();
+  const row = cellRow(cell);
+  /* quantização ao vivo: a nota agarra na subdivisão mais próxima —
+     atrasada toca já; adiantada espera a grade chegar */
+  let t = AC.currentTime, delay = 0;
+  if (S.playing && S.quant > 0){
+    const grid = stepDur() * S.quant;
+    const el = AC.currentTime - S.loopStart;
+    const tq = S.loopStart + Math.round(el / grid) * grid;
+    t = Math.max(AC.currentTime, tq);
+    delay = (t - AC.currentTime) * 1000;
+  }
+  const v = playNote(hand, cell, t);
+  if (v){
+    const h = hands[hand];
+    v.x0 = (visionMode === "mp" && h.px !== undefined) ? h.px : tipX;
+    voices[hand].push(v);
+    if (voices[hand].length > 6) voices[hand].shift();
+  }
+  const fire = () => {
+    waves.push({ hand, row, x: tipX, t0: performance.now() });
+    plucks.push({ hand, row, x: tipX, t0: performance.now(),
+      dur: hand === "L" ? .95 : 1.6 });
+    rowPulse[hand][row] = 1;
+  };
+  if (delay > 20) setTimeout(fire, delay); else fire();
+  if (S.recording && S.playing && S.recLayer){
+    const off = (t - S.loopStart + loopDur()) % loopDur();
+    const step = Math.round(off / stepDur()) % STEPS;
+    const key = hand + cell;
+    if (!S.recLayer.steps.some(e => e.step === step && e.key === key)){
+      S.recLayer.steps.push({ step, key, x: tipX });
+      if (hand === "L") S.recLayer.warm++; else S.recLayer.cool++;
+    }
+  }
+}
+const rowPulse = { L: new Array(ROWS).fill(0), R: new Array(ROWS).fill(0) };
+const waves = [];
+const plucks = [];   // excitações físicas: vibração (R) e clareira (L)
+
+/* ---------- transporte / agendador ---------- */
+let nextStep = 0, nextStepTime = 0, schedTimer = null;
+const LOOKAHEAD = .12, TICK = 25;
+function startTransport(){
+  if (S.playing) return;
+  initAudio(); AC.resume();
+  S.playing = true;
+  nextStep = 0;
+  nextStepTime = AC.currentTime + .06;
+  S.loopStart = nextStepTime;
+  schedTimer = setInterval(scheduler, TICK);
+  ui.btnPlay.innerHTML = "&#9632; Parar";
+  ui.btnPlay.classList.add("active");
+}
+function stopTransport(){
+  S.playing = false;
+  clearInterval(schedTimer);
+  if (S.recording) toggleRec();
+  ui.btnPlay.innerHTML = "&#9654; Tocar";
+  ui.btnPlay.classList.remove("active");
+}
+function scheduler(){
+  while (nextStepTime < AC.currentTime + LOOKAHEAD){
+    scheduleStep(nextStep, nextStepTime);
+    if (nextStep === 0) S.loopStart = nextStepTime;
+    nextStep = (nextStep + 1) % STEPS;
+    nextStepTime += stepDur();
+  }
+}
+var beatPulse = 0;
+function scheduleStep(step, t){
+  // pulso visual: a poeira respira no tempo — metrônomo para os olhos
+  if (step % 4 === 0){
+    const ms = Math.max(0, (t - AC.currentTime) * 1000);
+    const strong = step % 16 === 0;
+    setTimeout(() => { beatPulse = strong ? 1 : .55; }, ms);
+  }
+  const p = DRUMS[S.drumStyle].p;
+  if (S.drumsOn){
+    if (p.k.has(step)) playKick(t, .9);
+    if (p.s.has(step)) playSnare(t, .85);
+    if (p.h.has(step)) playHat(t, .8, false);
+    if (p.ho.has(step)) playHat(t, .8, true);
+  }
+  if (S.metro && step % 4 === 0) playClick(t, step % 16 === 0);
+  for (const ly of S.layers){
+    if (ly.muted || ly === S.recLayer) continue;
+    for (const e of ly.steps){
+      if (e.step !== step) continue;
+      const hand = e.key[0], cell = +e.key.slice(1);
+      const row = cellRow(cell);
+      playNote(hand, cell, t);
+      const dtms = Math.max(0, (t - AC.currentTime) * 1000);
+      setTimeout(() => {
+        rowPulse[hand][row] = Math.max(rowPulse[hand][row], .8);
+        const gx = e.x !== undefined ? e.x :
+          (VERT() ? .6 : (hand === "L" ? .25 : .75));
+        waves.push({ hand, row, x: gx, t0: performance.now(), ghost: true });
+        plucks.push({ hand, row, x: gx, t0: performance.now(),
+          dur: hand === "L" ? .95 : 1.6 });
+      }, dtms);
+    }
+  }
+}
+
+/* ---------- camadas ---------- */
+let layerCount = 0;
+function toggleRec(){
+  initAudio();
+  if (!S.recording){
+    if (!S.playing) startTransport();
+    layerCount++;
+    S.recLayer = { id: Date.now(), name: "Camada " + layerCount,
+      steps: [], muted: false, warm: 0, cool: 0 };
+    S.layers.push(S.recLayer);
+    S.recording = true;
+    ui.btnRec.classList.add("armed");
+    ui.btnRec.textContent = "Fechar camada";
+    ui.panel.classList.add("recording");
+  } else {
+    S.recording = false;
+    if (S.recLayer && S.recLayer.steps.length === 0){
+      S.layers = S.layers.filter(l => l !== S.recLayer);
+      layerCount--;
+    }
+    S.recLayer = null;
+    ui.btnRec.classList.remove("armed");
+    ui.btnRec.textContent = "Gravar";
+    ui.panel.classList.remove("recording");
+  }
+  setCamState(); renderLayers();
+}
+function renderLayers(){
+  const el = ui.layers;
+  el.innerHTML = "";
+  if (!S.layers.length){
+    el.innerHTML = '<span id="layersEmpty">nenhuma camada gravada</span>';
+    return;
+  }
+  for (const ly of S.layers){
+    const d = document.createElement("div");
+    d.className = "layer" + (ly.muted ? " muted" : "");
+    const warm = ly.warm >= ly.cool;
+    const col = ly === S.recLayer ? "var(--rec)" : (warm ? "var(--grave)" : "var(--agudo)");
+    d.innerHTML = '<span class="sw" style="background:' + col + '"></span>' +
+      '<span>' + ly.name + (ly === S.recLayer ? " ●" : "") + '</span>' +
+      '<button class="x" title="Apagar camada">&times;</button>';
+    d.addEventListener("click", ev => {
+      if (ev.target.classList.contains("x")){
+        S.layers = S.layers.filter(l => l !== ly);
+        if (S.recLayer === ly){ S.recLayer = null; S.recording = false;
+          ui.btnRec.classList.remove("armed"); ui.btnRec.textContent = "Gravar";
+          ui.panel.classList.remove("recording"); }
+        renderLayers(); setCamState(); return;
+      }
+      if (ly !== S.recLayer){ ly.muted = !ly.muted; renderLayers(); }
+    });
+    el.appendChild(d);
+  }
+}
+
+/* ---------- tela e campo de pontos ---------- */
+const video = document.getElementById("cam");
+const stage = document.getElementById("stage");
+const sctx = stage.getContext("2d");
+const an = document.createElement("canvas");
+const anx = an.getContext("2d", { willReadFrequently: true });
+let AW = 208, AH = 117;
+
+/* amostragem por rejeição (blueprint §3): a densidade forma cristas
+   nas cordas horizontais — a tela vira poeira com estrutura musical */
+const DOTS = [];
+const N_DOTS = 4200;
+function densityAt(x, y){
+  let d = .045;                                     // poeira ambiente
+  if (!VERT()){
+    for (let i = 0; i < ROWS; i++){
+      const dy = y - rowY(i);
+      d += Math.exp(-(dy * dy) / (2 * .011 * .011)) * .85;
+    }
+  } else if (PIANO()){
+    const side = x < .5 ? "L" : "R";
+    if (y > .175 && y < .855){
+      for (let i = 0; i < ROWS; i++){
+        const dx = Math.abs(x - strPos(side, i));
+        if (dx < .0225){
+          const eb = Math.min(1, (.0225 - dx) / .006);        // borda da tecla
+          const ev = Math.min(1, (y - .175) / .022, (.855 - y) / .022);
+          d += .8 * eb * ev;
+          break;
+        }
+      }
+    }
+  } else {
+    const side = x < .5 ? "L" : "R";
+    for (let i = 0; i < ROWS; i++){
+      const dx = x - strPos(side, i);
+      d += Math.exp(-(dx * dx) / (2 * .009 * .009)) * .85;
+    }
+  }
+  const edge = Math.min(x, 1 - x, y, 1 - y);        // feather nas bordas
+  d *= Math.min(1, edge / .04);
+  const seam = Math.abs(x - .5);                    // respiro no centro
+  d *= seam < .012 ? seam / .012 : 1;
+  return Math.min(1, d);
+}
+function buildDots(){
+  DOTS.length = 0;
+  let tent = 0;
+  while (DOTS.length < N_DOTS && tent++ < N_DOTS * 90){
+    const x = Math.random(), y = Math.random();
+    if (y > .90 || y < (VERT() ? .12 : .09)) continue;  // faixa útil
+    const dens = densityAt(x, y);
+    if (Math.random() >= Math.pow(dens, 1.3)) continue;
+    const side = x < .5 ? "L" : "R";
+    let ri = nearestString(side, x, y, PIANO() ? .0235 : VERT() ? .028 : .05);
+    if (PIANO() && (y < .19 || y > .845)) ri = -1;
+    let fill, hot;
+    if (ri >= 0){
+      const c = PIANO() ? CELLS[side][ri]
+        : CELLS[side][ri * 2 + (VERT() ? (y > .50 ? 0 : 1)
+          : (x < (side === "L" ? .25 : .75) ? 0 : 1))];
+      fill = c.css; hot = c.hot;
+    } else {
+      fill = side === "L" ? "rgb(255,160,90)" : "rgb(130,215,255)";
+      hot = side === "L" ? "rgb(255,120,40)" : "rgb(90,200,255)";
+    }
+    DOTS.push({
+      x, y, ri, side, fill, hot,
+      r: .55 + Math.random() * .85 + (ri >= 0 ? .25 : 0),
+      a: .16 + Math.random() * .3 + (ri >= 0 ? .18 : 0),
+      p1: Math.random() * 6.28, p2: Math.random() * 6.28, p3: Math.random() * 6.28,
+      f1: .35 + Math.random() * .55, f2: .3 + Math.random() * .5,
+      amp: (.35 + Math.random() * .45),
+      heat: 0,
+    });
+  }
+  // ordena por cor: minimiza trocas de fillStyle no render
+  DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 : 0);
+}
+buildDots();
+
+function sizeAll(){
+  stage.width = innerWidth * devicePixelRatio;
+  stage.height = innerHeight * devicePixelRatio;
+  stage.style.width = innerWidth + "px";
+  stage.style.height = innerHeight + "px";
+  AW = 208;
+  AH = Math.max(70, Math.round(AW * innerHeight / innerWidth));
+  an.width = AW; an.height = AH;
+  resetBg();
+}
+addEventListener("resize", sizeAll);
+sizeAll();
+
+/* ---------- câmera + subtração de fundo adaptativa ---------- */
+var bgModel = null, bgFrames = 0;
+function resetBg(){ bgModel = null; bgFrames = 0; }
+
+/* ---------- mapa da mão (MediaPipe Hands): 21 pontos por mão ----------
+   Motor principal. A ponta do indicador (ponto 8) é o cursor; a flexão
+   do dedo é medida pela razão entre as distâncias ponta->punho e
+   junta->punho — geometria pura, independente da luz da sala.
+   Sem internet, o motor de luz continua como reserva automática. */
+var visionMode = "none";            // "mp" | "luz" | "none"
+var mpHands = null, pumpBusy = false;
+const MP_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/hands";
+const HAND_LINKS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],
+  [9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],
+  [18,19],[19,20],[0,17]];
+const TIPS = [4, 8, 12, 16, 20];
+
+function loadScript(src, ms){
+  return new Promise(res => {
+    const s = document.createElement("script");
+    const to = setTimeout(() => res(false), ms);
+    s.onload = () => { clearTimeout(to); res(true); };
+    s.onerror = () => { clearTimeout(to); res(false); };
+    s.src = src;
+    document.head.appendChild(s);
+  });
+}
+async function initMediaPipe(){
+  const ok = await loadScript(MP_CDN + "/hands.js", 12000);
+  if (!ok || !window.Hands) return false;
+  try{
+    mpHands = new window.Hands({ locateFile: f => MP_CDN + "/" + f });
+    mpHands.setOptions({
+      maxNumHands: 2, modelComplexity: 1, selfieMode: true,
+      minDetectionConfidence: .6, minTrackingConfidence: .5,
+    });
+    mpHands.onResults(onHandResults);
+    await mpHands.initialize();
+    return true;
+  }catch(e){ return false; }
+}
+function pump(){
+  if (!S.camOn || visionMode !== "mp") return;
+  if (!pumpBusy && video.readyState >= 2){
+    pumpBusy = true;
+    mpHands.send({ image: video })
+      .catch(() => {})
+      .finally(() => { pumpBusy = false; });
+  }
+  requestAnimationFrame(pump);
+}
+
+function curlRatio(lm, tipI, pipI){
+  const w = lm[0];
+  const dt_ = Math.hypot(lm[tipI].x - w.x, lm[tipI].y - w.y);
+  const dp = Math.hypot(lm[pipI].x - w.x, lm[pipI].y - w.y);
+  return dp > 1e-6 ? dt_ / dp : 1.5;
+}
+/* histerese: estica acima de 1.10 (arma), belisca abaixo de 1.05 (dispara) */
+function processPluck(h, ratio, now){
+  h.curl = h.curl * .3 + ratio * .7;
+  if (h.curl > 1.10) h.ext = true;
+  if (h.ext && h.curl < 1.05 && h.aim !== null && now - h.cool > 110){
+    h.ext = false; h.cool = now;
+    return true;
+  }
+  return false;
+}
+function assignHand(lm, side, now){
+  const h = hands[side];
+  h.lm = lm; h.seen = now;
+  if (!h.on){
+    h.x = lm[8].x; h.y = lm[8].y; h.px = lm[9].x;
+    for (const f of h.fingers){
+      f.x = lm[f.tip].x; f.y = lm[f.tip].y;
+      f.curl = 1.3; f.ext = false; f.aim = null; f.brow = null; f.col = null;
+    }
+  }
+  h.on = true;
+  h.x += (lm[8].x - h.x) * .55;
+  h.y += (lm[8].y - h.y) * .55;
+  h.px += (lm[9].x - h.px) * .5;          // palma: referência do slider
+  h.glow = Math.min(1, h.glow + .2);
+  for (let fi = 0; fi < h.fingers.length; fi++){
+    const f = h.fingers[fi];
+    const tip = lm[f.tip];
+    const ratio = curlRatio(lm, f.tip, f.pip);
+    f.x += (tip.x - f.x) * .6;
+    f.y += (tip.y - f.y) * .6;
+    // modo 1 dedo: só o indicador arma e belisca (controle cirúrgico);
+    // modo 4 dedos: cada um mira e belisca a corda sob a própria ponta
+    if (S.fingerMode !== 4 && fi !== 0){
+      f.aim = null; f.ext = false;
+      f.curl = f.curl * .3 + ratio * .7;
+      continue;
+    }
+    // mira por dedo, travada durante a dobra (curl suavizado E instantâneo)
+    if (f.curl > 1.06 && ratio > 1.06){
+      let ri = nearestString(side, f.x, f.y, .10);
+      if (PIANO() && (f.y < .13 || f.y > .91)) ri = -1;
+      if (ri >= 0){
+        let cell;
+        if (PIANO()) cell = ri;
+        else {
+          f.col = cellCol(side, f.x, f.y, f.col);
+          cell = ri * 2 + f.col;
+        }
+        // roçar: entrou numa célula nova — trocar de corda exige o
+        // núcleo dela; mesma corda dispara no cruzamento da célula
+        if (cell !== f.brow && now - (f.bcool || 0) > 70){
+          const mudouCorda = f.brow === null || cellRow(f.brow) !== ri;
+          const perto = PIANO()
+            ? Math.abs(f.x - strPos(side, ri)) < .023
+            : VERT()
+              ? Math.abs(f.x - strPos(side, ri)) < .026
+              : Math.abs(f.y - rowY(ri)) < .038;
+          if (!mudouCorda || perto){
+            if (f.brow !== null) triggerBrush(side, cell, alongOf(f.x, f.y));
+            f.brow = cell; f.bcool = now;
+          }
+        }
+        f.aim = cell;
+      }
+    }
+    if (processPluck(f, ratio, now))
+      triggerNote(side, f.aim, alongOf(f.x, f.y));
+  }
+  h.aim = h.fingers[0].aim;               // destaque principal segue o indicador
+}
+function onHandResults(results){
+  const det = results.multiHandLandmarks || [];
+  const now = performance.now();
+  if (det.length === 1){
+    assignHand(det[0], det[0][8].x < .5 ? "L" : "R", now);
+  } else if (det.length >= 2){
+    const arr = det.slice(0, 2).sort((a, b) => a[8].x - b[8].x);
+    assignHand(arr[0], "L", now);
+    assignHand(arr[1], "R", now);
+  }
+}
+function expireHands(now){
+  for (const side of ["L", "R"]){
+    const h = hands[side];
+    if (h.on && now - h.seen > 280){
+      h.on = false; h.aim = null; h.lm = null;
+      for (const f of h.fingers){ f.aim = null; f.brow = null; f.col = null; }
+    }
+  }
+}
+
+async function startCamera(){
+  initAudio(); AC.resume();
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    resetBg();
+    S.camOn = true;
+    document.getElementById("intro").style.display = "none";
+    visionMode = "carregando";
+    setCamState();
+    const mpOk = await initMediaPipe();
+    visionMode = mpOk ? "mp" : "luz";
+    setCamState();
+    if (mpOk) pump();
+  }catch(err){
+    const e = document.getElementById("introErr");
+    e.style.display = "block";
+    e.textContent = "A câmera não abriu (" + err.name + "). " +
+      "Verifique a permissão do navegador — ou baixe o arquivo e abra localmente. " +
+      "Você pode fechar esta tela e tocar arrastando o mouse.";
+    const b = document.getElementById("btnStart");
+    b.textContent = "Continuar sem câmera";
+    b.onclick = () => { document.getElementById("intro").style.display = "none"; setCamState(); };
+  }
+}
+
+function analyze(){
+  if (!S.camOn || video.readyState < 2) return null;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw) return null;
+  const sc = Math.max(AW / vw, AH / vh);
+  const dw = vw * sc, dh = vh * sc;
+  anx.save();
+  anx.translate(AW, 0); anx.scale(-1, 1);
+  anx.drawImage(video, (AW - dw) / 2, (AH - dh) / 2, dw, dh);
+  anx.restore();
+  const d = anx.getImageData(0, 0, AW, AH).data;
+  const N = AW * AH;
+  if (!bgModel || bgModel.length !== N){
+    bgModel = new Float32Array(N); bgFrames = 0;
+    for (let i = 0; i < N; i++)
+      bgModel[i] = d[i*4]*.3 + d[i*4+1]*.55 + d[i*4+2]*.15;
+  }
+  bgFrames++;
+  const delta = Math.max(14, 72 - S.sens * .62);
+  const raw = new Uint8Array(N);
+  for (let i = 0; i < N; i++){
+    const j = i * 4;
+    const lum = d[j]*.3 + d[j+1]*.55 + d[j+2]*.15;
+    const fg = (lum - bgModel[i]) > delta && lum > 34;
+    raw[i] = fg ? 1 : 0;
+    const a = bgFrames < 25 ? .3 : (fg ? .004 : .035);
+    bgModel[i] += (lum - bgModel[i]) * a;
+  }
+  const mask = new Uint8Array(N);        // dilatação 1px
+  for (let y = 0; y < AH; y++){
+    for (let x = 0; x < AW; x++){
+      const i = y * AW + x;
+      if (raw[i] ||
+          (x > 0 && raw[i-1]) || (x < AW-1 && raw[i+1]) ||
+          (y > 0 && raw[i-AW]) || (y < AH-1 && raw[i+AW])) mask[i] = 1;
+    }
+  }
+  return mask;
+}
+
+/* ---------- mãos: a altura MIRA a corda, a dobra dos dedos BELISCA ----------
+   Quando os dedos flexionam, o ponto mais alto da mão despenca num estalo —
+   esse pico de velocidade para baixo é o gesto de beliscar a corda mirada. */
+const PLUCK_V = 1.0;      // velocidade (tela/seg) que caracteriza a dobra
+function mkFingers(){
+  return [[8,6],[12,10],[16,14],[20,18]].map(fp => ({
+    tip: fp[0], pip: fp[1], x:.5, y:.5, curl:1.3, ext:false, cool:0,
+    aim:null, brow:null, bcool:0, col:null }));
+}
+const hands = {
+  L: { on:false, x:.25, y:.9, px:undefined, vy:0, aim:null, armed:false, frames:0,
+       cool:0, glow:0, lm:null, seen:0, curl:1.3, ext:false, fingers: mkFingers() },
+  R: { on:false, x:.75, y:.9, px:undefined, vy:0, aim:null, armed:false, frames:0,
+       cool:0, glow:0, lm:null, seen:0, curl:1.3, ext:false, fingers: mkFingers() },
+};
+function trackHands(mask, dt){
+  for (const hand of ["L", "R"]){
+    const h = hands[hand];
+    const x0 = hand === "L" ? 0 : AW >> 1;
+    const x1 = hand === "L" ? AW >> 1 : AW;
+    let total = 0, tipY = -1, sumX = 0, cnt = 0;
+    for (let y = 0; y < AH && tipY < 0; y++){
+      for (let x = x0; x < x1; x++) if (mask[y * AW + x]){ tipY = y; break; }
+    }
+    if (tipY >= 0){
+      for (let y = tipY; y < Math.min(AH, tipY + 6); y++)
+        for (let x = x0; x < x1; x++)
+          if (mask[y * AW + x]){ sumX += x; cnt++; }
+      for (let y = 0; y < AH; y++)
+        for (let x = x0; x < x1; x++) total += mask[y * AW + x];
+    }
+    if (tipY < 0 || total < 16 || tipY > AH * .93){
+      h.on = false; h.aim = null; h.armed = false; h.frames = 0; h.vy = 0;
+      h.glow *= .9;
+      continue;
+    }
+    const nx = (sumX / cnt) / AW, ny = tipY / AH;
+    if (!h.on){ h.x = nx; h.y = ny; h.vy = 0; }
+    h.x += (nx - h.x) * .45;
+    const prevY = h.y;
+    h.y += (ny - h.y) * .5;
+    h.vy = h.vy * .5 + ((h.y - prevY) / Math.max(dt, .008)) * .5;
+    h.on = true; h.frames++;
+    h.glow = Math.min(1, h.glow + .15);
+    // mira: com o dedo calmo, a corda mais próxima fica selecionada
+    if (Math.abs(h.vy) < .3){
+      const ri = nearestString(hand, h.x, h.y, .10);
+      if (ri >= 0)
+        h.aim = PIANO() ? ri : ri * 2 + cellCol(hand, h.x, h.y, null);
+      h.armed = true;
+    }
+    // beliscão: estalo para baixo com a mira travada
+    const now = performance.now();
+    if (h.armed && h.frames > 5 && h.aim !== null &&
+        h.vy > PLUCK_V && now - h.cool > 160){
+      h.cool = now; h.armed = false;
+      triggerNote(hand, h.aim, alongOf(h.x, h.y));
+    }
+  }
+}
+
+/* ---------- toque por mouse / dedo na tela ---------- */
+let pointerOn = false;
+function pointerPlay(ev, isDown){
+  const x = ev.clientX / innerWidth, y = ev.clientY / innerHeight;
+  const hand = x < .5 ? "L" : "R";
+  const h = hands[hand];
+  h.x = x; h.y = y; h.on = true; h.glow = 1;
+  const ri = nearestString(hand, x, y, .10);
+  if (ri < 0) return;
+  const cell = PIANO() ? ri : ri * 2 + cellCol(hand, x, y, null);
+  h.aim = cell;
+  const now = performance.now();
+  if (isDown && now - h.cool > 110){
+    h.cool = now; h.mrow = cell;
+    triggerNote(hand, cell, alongOf(x, y));    // clique = beliscão forte
+  } else if (!isDown && cell !== h.mrow && now - h.cool > 70){
+    h.cool = now; h.mrow = cell;
+    triggerBrush(hand, cell, alongOf(x, y));   // arrastar = roçar sussurrado
+  }
+}
+stage.addEventListener("pointerdown", ev => {
+  initAudio(); AC.resume(); pointerOn = true;
+  hands.L.mrow = null; hands.R.mrow = null;
+  pointerPlay(ev, true);
+});
+stage.addEventListener("pointermove", ev => { if (pointerOn) pointerPlay(ev, false); });
+addEventListener("pointerup", () => {
+  pointerOn = false;
+  if (!S.camOn){
+    for (const h of [hands.L, hands.R]){ h.on = false; h.aim = null; h.mrow = null; }
+  }
+});
+
+/* ---------- render ---------- */
+let lastT = performance.now();
+function draw(){
+  requestAnimationFrame(draw);
+  const now = performance.now();
+  const dt = Math.min(.05, (now - lastT) / 1000);
+  lastT = now;
+  const t = now / 1000;
+  const W = stage.width, H = stage.height;
+  const dpr = devicePixelRatio;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.fillStyle = "#04050a";
+  sctx.fillRect(0, 0, W, H);
+
+  // câmara de temperatura: quente embaixo-esquerda, fria em cima-direita
+  beatPulse *= Math.pow(.5, dt / .1);
+  const bp = beatPulse;
+  const gl = sctx.createRadialGradient(W*.18, H*.8, 0, W*.18, H*.8, W*.5);
+  gl.addColorStop(0, "rgba(255,138,61," + (.05 + .045 * bp) + ")");
+  gl.addColorStop(1, "transparent");
+  sctx.fillStyle = gl; sctx.fillRect(0, 0, W, H);
+  const gr = sctx.createRadialGradient(W*.82, H*.3, 0, W*.82, H*.3, W*.5);
+  gr.addColorStop(0, "rgba(111,227,255," + (.05 + .045 * bp) + ")");
+  gr.addColorStop(1, "transparent");
+  sctx.fillStyle = gr; sctx.fillRect(0, 0, W, H);
+
+  // visão: mapa da mão (mp) ou subtração de fundo (luz)
+  updateBends();
+  let mask = null;
+  const heatPts = [];
+  if (S.camOn){
+    if (visionMode === "mp"){
+      expireHands(now);
+      for (const side of ["L", "R"]){
+        const h = hands[side];
+        if (!h.on || !h.lm) continue;
+        for (const ti of TIPS) heatPts.push({ x: h.lm[ti].x, y: h.lm[ti].y, s: side });
+        heatPts.push({ x: h.lm[0].x, y: h.lm[0].y, s: side });
+        heatPts.push({ x: h.lm[9].x, y: h.lm[9].y, s: side });
+      }
+    } else if (visionMode === "luz"){
+      mask = analyze();
+      if (mask) trackHands(mask, dt);
+    }
+  }
+
+  // vídeo de fundo, mais presente para orientação
+  if (S.camOn && video.readyState >= 2){
+    sctx.save();
+    sctx.globalAlpha = .13;
+    sctx.filter = "grayscale(1) brightness(.8) contrast(1.08)";
+    sctx.translate(W, 0); sctx.scale(-1, 1);
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const vs = Math.max(W / vw, H / vh);
+    sctx.drawImage(video, (W - vw*vs)/2, (H - vh*vs)/2, vw*vs, vh*vs);
+    sctx.restore();
+    sctx.filter = "none";
+  }
+
+  // ondas ativas por corda (para consulta rápida no loop de pontos)
+  const activeWaves = [];
+  for (let i = waves.length - 1; i >= 0; i--){
+    const w = waves[i];
+    const age = (now - w.t0) / 1000;
+    if (age > 1.1){ waves.splice(i, 1); continue; }
+    activeWaves.push({ hand: w.hand, row: w.row, x: w.x,
+      front: age * 1.15, fade: Math.max(0, 1 - age / 1.1) });
+  }
+  for (const hand of ["L", "R"])
+    for (let i = 0; i < ROWS; i++) rowPulse[hand][i] *= Math.pow(.5, dt / .18);
+
+  /* ---- física dos beliscões ----
+     direita: a corda VIBRA (onda estacionária amortecida);
+     esquerda: o grave ABRE UMA CLAREIRA pulsante na poeira —
+     a ausência de pontos é que soa. */
+  const actL = [], actR = [];
+  for (let i = plucks.length - 1; i >= 0; i--){
+    const pl = plucks[i];
+    const age = (now - pl.t0) / 1000;
+    if (age > pl.dur){ plucks.splice(i, 1); continue; }
+    (pl.hand === "L" ? actL : actR).push({ row: pl.row, x: pl.x, age,
+      amp: pl.amp || 1 });
+  }
+  // antecipação: direita tensiona a corda sob o dedo, esquerda cede espaço
+  const tens = [], repl = [];
+  for (const side of ["L", "R"]){
+    const h = hands[side];
+    if (!h.on) continue;
+    if (visionMode === "mp" && h.lm){
+      for (let fi = 0; fi < h.fingers.length; fi++){
+        if (S.fingerMode !== 4 && fi !== 0) continue;
+        const f = h.fingers[fi];
+        if (side === "R" && f.aim !== null && f.curl > 1.05)
+          tens.push({ a: alongOf(f.x, f.y), row: cellRow(f.aim) });
+        if (side === "L") repl.push({ x: f.x, y: f.y });
+      }
+    } else {
+      if (side === "R" && h.aim !== null)
+        tens.push({ a: alongOf(h.x, h.y), row: cellRow(h.aim) });
+      if (side === "L") repl.push({ x: h.x, y: h.y });
+    }
+  }
+  const bendR = voices.R.length ? voices.R[voices.R.length - 1].cents / 200 : 0;
+
+  // ---- pontos: passe único ordenado por cor; heat em passe aditivo ----
+  const heatDots = [];
+  const decay = Math.exp(-dt * 3.2);
+  let lastFill = null;
+  {
+    for (const p of DOTS){
+      const side = p.side;
+      if (p.fill !== lastFill){ sctx.fillStyle = p.fill; lastFill = p.fill; }
+      // calor: a mão acende a poeira por onde passa (blueprint §9)
+      if (mask){
+        const mx = Math.min(AW - 1, p.x * AW | 0);
+        const my = Math.min(AH - 1, p.y * AH | 0);
+        if (mask[my * AW + mx]) p.heat = 1; else p.heat *= decay;
+      } else if (heatPts.length){
+        let hot = false;
+        for (let k = 0; k < heatPts.length; k++){
+          const q = heatPts[k];
+          if (q.s !== side) continue;
+          const dx = p.x - q.x, dy = p.y - q.y;
+          if (dx*dx + dy*dy < .0024){ hot = true; break; }
+        }
+        if (hot) p.heat = 1; else p.heat *= decay;
+      } else if (hands[side].on){
+        const dx = p.x - hands[side].x, dy = p.y - hands[side].y;
+        if (dx*dx + dy*dy < .0035) p.heat = 1; else p.heat *= decay;
+      } else p.heat *= decay;
+      // onda da nota correndo pela corda
+      let glow = 0;
+      if (p.ri >= 0){
+        for (const w of activeWaves){
+          if (w.hand !== p.side || w.row !== p.ri) continue;
+          const aw = VERT() ? p.y : p.x;
+          const dd = Math.abs(Math.abs(aw - w.x) - w.front);
+          if (dd < .09) glow = Math.max(glow, Math.exp(-(dd*dd)/(2*.028*.028)) * w.fade);
+        }
+        glow = Math.max(glow, rowPulse[p.side][p.ri] * .35);
+      }
+      // ---- deslocamento físico (orientável) ----
+      let dxN = 0, dyN = 0;
+      const along = VERT() ? p.y : p.x;
+      if (side === "R"){
+        if (p.ri >= 0){
+          for (const pl of actR){
+            if (pl.row !== p.ri) continue;
+            const env = Math.exp(-pl.age * 2.1) * pl.amp;
+            const sig = .055 + pl.age * .22;          // a energia se espalha
+            const da = along - pl.x;
+            const sp = Math.exp(-(da * da) / (2 * sig * sig));
+            const fV = 3 + pl.row * .75;              // agudo treme mais rápido
+            const osc = .011 * env * sp *
+              Math.sin(6.2832 * fV * pl.age + along * 44) +
+              bendR * .009 * sp * env;                // o slider ENVERGA a corda
+            if (VERT()) dxN += osc; else dyN += osc;
+          }
+          for (const tq of tens){                     // tensão pré-nota
+            if (tq.row !== p.ri) continue;
+            const da = along - tq.a;
+            const sp = Math.exp(-(da * da) / (2 * .05 * .05));
+            if (VERT()) dxN += (strPos("R", p.ri) - p.x) * .38 * sp;
+            else dyN += (rowY(p.ri) - p.y) * .38 * sp;
+          }
+        }
+      } else {
+        for (const pl of actL){                       // clareira do grave
+          const cx1 = VERT() ? strPos("L", pl.row) : pl.x;
+          const cy0 = VERT() ? pl.x : rowY(pl.row);
+          let d = Math.hypot(p.x - cx1, p.y - cy0);
+          const R0 = (.10 - pl.row * .006) * (pl.amp >= 1 ? 1 : .5);
+          const env = Math.min(1, pl.age / .06) * Math.exp(-pl.age * 1.9);
+          const Rr = R0 * env *
+            (.82 + .18 * Math.sin(6.2832 * (2.1 + pl.row * .15) * pl.age));
+          if (d < Rr){
+            d = Math.max(d, .0012);
+            const push = (Rr - d) * .8;
+            dxN += (p.x - cx1) / d * push;
+            dyN += (p.y - cy0) / d * push;
+          } else {
+            const rim = Math.exp(-((d - Rr) * (d - Rr)) / (2 * .014 * .014)) * env;
+            glow = Math.max(glow, rim * .7);          // borda comprimida brilha
+          }
+        }
+        for (const rq of repl){                       // a poeira cede ao dedo
+          let d = Math.hypot(p.x - rq.x, p.y - rq.y);
+          if (d < .05){
+            d = Math.max(d, .0015);
+            const push = (.05 - d) * .22;
+            dxN += (p.x - rq.x) / d * push;
+            dyN += (p.y - rq.y) / d * push;
+          }
+        }
+      }
+      const wx = Math.sin(t*p.f1 + p.p1)*p.amp + Math.sin(t*p.f2*1.7 + p.p2)*p.amp*.6;
+      const wy = Math.cos(t*p.f2 + p.p3)*p.amp + Math.sin(t*p.f1 + p.p1)*p.amp*.5;
+      const px = ((p.x + dxN) * innerWidth + wx) * dpr;
+      const py = ((p.y + dyN) * innerHeight + wy) * dpr;
+      const rr = p.r * (1 + p.heat * .5 + glow * .6 + beatPulse * .05) * dpr;
+      const al = Math.min(1, p.a + Math.sin(t*.8 + p.p1)*.06 + p.heat*.55 + glow*.8
+        + beatPulse * .06);
+      sctx.globalAlpha = al;
+      sctx.beginPath();
+      sctx.arc(px, py, rr, 0, 6.2832);
+      sctx.fill();
+      if (p.heat > .25 || glow > .4)
+        heatDots.push([px, py, rr, Math.max(p.heat, glow), p.hot]);
+    }
+  }
+  // passe aditivo: a versão incandescente da cor de cada célula
+  sctx.globalCompositeOperation = "lighter";
+  for (const hd of heatDots){
+    sctx.globalAlpha = hd[3] * .35;
+    sctx.fillStyle = hd[4];
+    sctx.beginPath();
+    sctx.arc(hd[0], hd[1], hd[2] * 1.6, 0, 6.2832);
+    sctx.fill();
+  }
+  sctx.globalCompositeOperation = "source-over";
+  sctx.globalAlpha = 1;
+
+  // constelação: o mapa da mão desenhado em pontos e traços finos
+  if (visionMode === "mp"){
+    sctx.save();
+    sctx.globalCompositeOperation = "lighter";
+    for (const side of ["L", "R"]){
+      const h = hands[side];
+      if (!h.on || !h.lm) continue;
+      const col = side === "L" ? "255,160,90" : "130,215,255";
+      sctx.strokeStyle = "rgba(" + col + ",.28)";
+      sctx.lineWidth = 1.1 * dpr;
+      sctx.beginPath();
+      for (const ln of HAND_LINKS){
+        const a = h.lm[ln[0]], b = h.lm[ln[1]];
+        sctx.moveTo(a.x * W, a.y * H);
+        sctx.lineTo(b.x * W, b.y * H);
+      }
+      sctx.stroke();
+      for (let i = 0; i < 21; i++){
+        const q = h.lm[i];
+        const tip = TIPS.indexOf(i) >= 0;
+        sctx.fillStyle = "rgba(" + col + "," + (tip ? .85 : .45) + ")";
+        sctx.beginPath();
+        sctx.arc(q.x * W, q.y * H, (tip ? 2.6 : 1.5) * dpr, 0, 6.2832);
+        sctx.fill();
+      }
+      // cada dedo esticado mostra um traço na célula que mira;
+      // dedo dobrando fica incandescente
+      for (const f of h.fingers){
+        if (f.aim !== null && f.curl > 1.05){
+          sctx.strokeStyle = cellRGBA(side, f.aim, .6);
+          sctx.lineWidth = 2 * dpr;
+          sctx.beginPath();
+          if (!VERT()){
+            const ay = rowY(cellRow(f.aim)) * H;
+            sctx.moveTo((f.x - .016) * W, ay);
+            sctx.lineTo((f.x + .016) * W, ay);
+          } else {
+            const ax = strPos(side, cellRow(f.aim)) * W;
+            sctx.moveTo(ax, (f.y - .016) * H);
+            sctx.lineTo(ax, (f.y + .016) * H);
+          }
+          sctx.stroke();
+        }
+        if (f.curl < 1.05){
+          sctx.fillStyle = "rgba(255,255,255,.9)";
+          sctx.beginPath();
+          sctx.arc(f.x * W, f.y * H, 3.6 * dpr, 0, 6.2832);
+          sctx.fill();
+        }
+      }
+    }
+    sctx.restore();
+  }
+
+  // nomes das notas em cada célula, pintados com a cor da altura
+  sctx.textBaseline = "middle"; sctx.textAlign = "center";
+  sctx.font = (9.5 * dpr) + "px ui-monospace, monospace";
+  for (const side of ["L", "R"]){
+    const nMax = PIANO() ? ROWS : NCELLS;
+    for (let n = 0; n < nMax; n++){
+      const c = CELLS[side][n];
+      const row = PIANO() ? n : n >> 1, col = n & 1;
+      let cx, y;
+      if (PIANO()){
+        cx = strPos(side, n) * W;
+        y = .885 * H;
+      } else if (!VERT()){
+        cx = (side === "L" ? (col ? .375 : .125) : (col ? .875 : .625)) * W;
+        y = rowY(row) * H - 11 * dpr;
+      } else {
+        cx = strPos(side, row) * W;
+        y = (col ? .245 : .715) * H;   // embaixo = nota-âncora
+      }
+      const a = .38 + rowPulse[side][row] * .55;
+      sctx.fillStyle = "hsla(" + c.hue + "," + c.s + "%," +
+        Math.min(82, c.l + 14) + "%," + a + ")";
+      sctx.fillText(c.name, cx, y);
+    }
+  }
+  // cursor de cada mão
+  for (const hand of ["L", "R"]){
+    const h = hands[hand];
+    if (h.glow < .03) continue;
+    const cx = h.x * W, cy = h.y * H;
+    const col = hand === "L" ? "255,170,100" : "140,220,255";
+    sctx.save();
+    sctx.globalCompositeOperation = "lighter";
+    // mira: segmento da corda acende na cor da célula selecionada
+    if (h.on && h.aim !== null){
+      sctx.lineWidth = 2.2 * dpr;
+      if (!VERT()){
+        const ay = rowY(cellRow(h.aim)) * H;
+        const seg = W * .13;
+        const lg = sctx.createLinearGradient(cx - seg, ay, cx + seg, ay);
+        lg.addColorStop(0, "transparent");
+        lg.addColorStop(.5, cellRGBA(hand, h.aim, .55 * h.glow));
+        lg.addColorStop(1, "transparent");
+        sctx.strokeStyle = lg;
+        sctx.beginPath();
+        sctx.moveTo(cx - seg, ay); sctx.lineTo(cx + seg, ay);
+        sctx.stroke();
+      } else {
+        const ax = strPos(hand, cellRow(h.aim)) * W;
+        const seg = H * .13;
+        const lg = sctx.createLinearGradient(ax, cy - seg, ax, cy + seg);
+        lg.addColorStop(0, "transparent");
+        lg.addColorStop(.5, cellRGBA(hand, h.aim, .55 * h.glow));
+        lg.addColorStop(1, "transparent");
+        sctx.strokeStyle = lg;
+        sctx.beginPath();
+        sctx.moveTo(ax, cy - seg); sctx.lineTo(ax, cy + seg);
+        sctx.stroke();
+      }
+    }
+    const g = sctx.createRadialGradient(cx, cy, 0, cx, cy, 26 * dpr);
+    g.addColorStop(0, "rgba(" + col + "," + (.5 * h.glow) + ")");
+    g.addColorStop(1, "transparent");
+    sctx.fillStyle = g;
+    sctx.beginPath(); sctx.arc(cx, cy, 26 * dpr, 0, 6.2832); sctx.fill();
+    sctx.fillStyle = "rgba(255,255,255," + (.85 * h.glow) + ")";
+    sctx.beginPath(); sctx.arc(cx, cy, 2.4 * dpr, 0, 6.2832); sctx.fill();
+    // rótulo do slider de semitons
+    const vs = voices[hand];
+    const bv = vs.length ? vs[vs.length - 1] : null;
+    if (bv && Math.abs(bv.cents) >= 55){
+      const st = Math.round(bv.cents / 100);
+      if (st !== 0){
+        sctx.font = (11 * dpr) + "px ui-monospace, monospace";
+        sctx.textAlign = "center"; sctx.textBaseline = "middle";
+        sctx.fillStyle = "rgba(255,255,255,.85)";
+        sctx.fillText((st > 0 ? "+" : "") + st + " st", cx, cy + 36 * dpr);
+      }
+    }
+    sctx.restore();
+    if (!h.on) h.glow *= .92;
+  }
+
+  // agulha do ciclo
+  if (S.playing && AC){
+    const off = (AC.currentTime - S.loopStart + loopDur()) % loopDur();
+    ui.playhead.style.left = (off / loopDur() * 100) + "%";
+  }
+}
+requestAnimationFrame(draw);
+
+/* ---------- interface ---------- */
+const ui = {
+  panel: document.getElementById("panel"),
+  btnRec: document.getElementById("btnRec"),
+  btnPlay: document.getElementById("btnPlay"),
+  layers: document.getElementById("layers"),
+  playhead: document.getElementById("playhead"),
+  bpmOut: document.getElementById("bpmOut"),
+  camState: document.getElementById("camState"),
+  camStateTxt: document.getElementById("camStateTxt"),
+};
+function setCamState(){
+  ui.camState.classList.toggle("on", S.camOn && !S.recording);
+  ui.camState.classList.toggle("rec", S.recording);
+  ui.camStateTxt.textContent = S.recording ? "gravando" :
+    !S.camOn ? "modo mouse" :
+    visionMode === "mp" ? "mapa da mão ativo" :
+    visionMode === "luz" ? "modo luz (sem mapa)" : "carregando mapa da mão…";
+}
+document.getElementById("btnStart").addEventListener("click", startCamera);
+ui.btnRec.addEventListener("click", toggleRec);
+ui.btnPlay.addEventListener("click", () => S.playing ? stopTransport() : startTransport());
+document.getElementById("bpmUp").addEventListener("click", () => setBpm(S.bpm + 5));
+document.getElementById("bpmDown").addEventListener("click", () => setBpm(S.bpm - 5));
+function setBpm(v){ S.bpm = Math.min(180, Math.max(60, v)); ui.bpmOut.textContent = S.bpm; }
+document.getElementById("drumVol").addEventListener("input", ev => {
+  if (drumBus) drumBus.gain.value = ev.target.value / 100;
+});
+document.getElementById("sens").addEventListener("input", ev => { S.sens = +ev.target.value; });
+document.getElementById("btnMetro").addEventListener("click", ev => {
+  S.metro = !S.metro; ev.currentTarget.classList.toggle("sel", S.metro);
+});
+document.getElementById("btnHelp").addEventListener("click", () => {
+  const iv = document.getElementById("intro");
+  iv.style.display = "flex";
+  const b = document.getElementById("btnStart");
+  b.textContent = S.camOn ? "Voltar a tocar" : "Ligar a câmera";
+  b.onclick = S.camOn ? () => { iv.style.display = "none"; } : startCamera;
+});
+const stylesEl = document.getElementById("styles");
+for (const key of Object.keys(DRUMS)){
+  const b = document.createElement("button");
+  b.className = "chip" + (key === S.drumStyle ? " sel" : "");
+  b.textContent = DRUMS[key].name;
+  b.title = "Estilo de bateria: " + DRUMS[key].name;
+  b.addEventListener("click", () => {
+    S.drumStyle = key;
+    S.drumsOn = key !== "off";
+    stylesEl.querySelectorAll(".chip").forEach(c => c.classList.remove("sel"));
+    b.classList.add("sel");
+    if (key !== "off" && !S.playing) startTransport();   // beat na hora
+  });
+  stylesEl.appendChild(b);
+}
+const ticks = document.querySelector("#loopbar .ticks");
+for (let i = 0; i < STEPS; i++) ticks.appendChild(document.createElement("i"));
+
+function chipGroup(elId, options, get, set){
+  const el = document.getElementById(elId);
+  for (const op of options){
+    const b = document.createElement("button");
+    b.className = "chip" + (get() === op[1] ? " sel" : "");
+    b.textContent = op[0];
+    b.title = op[2];
+    b.addEventListener("click", () => {
+      set(op[1]);
+      el.querySelectorAll(".chip").forEach(c => c.classList.remove("sel"));
+      b.classList.add("sel");
+    });
+    el.appendChild(b);
+  }
+}
+chipGroup("quantChips", [
+  ["Livre", 0, "As notas soam no instante exato do gesto"],
+  ["1/8", 2, "As notas agarram na colcheia mais próxima do beat"],
+  ["1/16", 1, "As notas agarram na semicolcheia mais próxima"],
+], () => S.quant, v => { S.quant = v; });
+chipGroup("fingerChips", [
+  ["1", 1, "Só o indicador belisca — controle preciso"],
+  ["4", 4, "Todos os dedos beliscam — acordes e dedilhados"],
+], () => S.fingerMode, v => { S.fingerMode = v; });
+chipGroup("soundChips", [
+  ["Poeira", "poeira", "Sinos de celesta e sub quente — o som original"],
+  ["Cordas", "cordas", "Guitarra dedilhada e contrabaixo acústico"],
+  ["Piano", "piano", "Piano nas duas mãos, com martelo e cauda"],
+  ["Fuzz", "fuzz", "Distorção — solo rasgado e baixo sujo"],
+], () => S.timbre, v => { S.timbre = v; });
+chipGroup("orientChips", [
+  ["\u2194", "h", "Cordas horizontais — altura da mão escolhe a corda"],
+  ["\u2195", "v", "Harpa — cordas em pé, graves à esquerda, agudos à direita"],
+  ["Teclas", "p", "Piano — duas oitavas de teclas largas, grave à esq., aguda à dir."],
+], () => S.orient, v => setOrient(v));
+function setOrient(o){
+  if (S.orient === o) return;
+  S.orient = o;
+  plucks.length = 0; waves.length = 0;
+  for (const sd of ["L", "R"]){
+    hands[sd].aim = null; hands[sd].mrow = null;
+    for (const f of hands[sd].fingers){ f.aim = null; f.brow = null; f.col = null; }
+  }
+  buildDots();       // a poeira se reorganiza nas cordas novas
+}
+
+addEventListener("keydown", ev => {
+  if (ev.repeat) return;
+  if (ev.code === "Space"){ ev.preventDefault(); S.playing ? stopTransport() : startTransport(); }
+  if (ev.key === "r" || ev.key === "R") toggleRec();
+});
+setCamState();
+</script>
+</body>
+</html>
