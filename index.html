@@ -70,6 +70,19 @@
   #btnRec.armed::before{animation:blink 1s steps(2) infinite}
 
   .chip{padding:6px 10px;font-size:10px;border-radius:8px}
+
+  /* seletor de formato: controle segmentado, o mais visível do painel */
+  .lbl.hot{color:var(--osso);opacity:.85}
+  #orientChips{gap:0;border:1px solid rgba(200,210,240,.3);border-radius:10px;
+    overflow:hidden;background:rgba(233,227,210,.05);flex-wrap:nowrap}
+  #orientChips .chip{border:none;border-radius:0;padding:8px 13px;font-size:10.5px;
+    letter-spacing:.1em;color:var(--dim);border-right:1px solid var(--line);
+    display:flex;align-items:center;gap:6px;white-space:nowrap}
+  #orientChips .chip:last-child{border-right:none}
+  #orientChips .chip:hover{color:var(--txt);background:rgba(200,210,240,.09)}
+  #orientChips .chip.sel{background:rgba(233,227,210,.17);color:var(--osso);
+    text-shadow:0 0 10px rgba(233,227,210,.35)}
+  #orientChips .chip .ic{font-size:13px;line-height:1;opacity:.9}
   .chip.sel{background:rgba(233,227,210,.14);border-color:rgba(233,227,210,.6);color:var(--osso)}
 
   .stepper{display:flex;align-items:center;gap:2px}
@@ -144,6 +157,10 @@
   <div class="row">
     <button id="btnRec" title="Gravar uma camada (R)">Gravar</button>
     <button id="btnPlay" title="Tocar / parar o ciclo (espaço)">&#9654; Tocar</button>
+    <div class="sep"></div>
+    <span class="lbl hot">Formato</span>
+    <div class="row" id="orientChips"></div>
+    <div class="sep"></div>
     <div id="layers"><span id="layersEmpty">nenhuma camada gravada</span></div>
     <div class="sep"></div>
     <span class="lbl">BPM</span>
@@ -164,8 +181,6 @@
     <div class="row" id="quantChips" style="gap:5px"></div>
     <span class="lbl">Dedos</span>
     <div class="row" id="fingerChips" style="gap:5px"></div>
-    <span class="lbl">Cordas</span>
-    <div class="row" id="orientChips" style="gap:5px"></div>
     <div class="sep"></div>
     <span class="lbl opt">Sensibilidade</span>
     <input type="range" id="sens" min="0" max="100" value="55" title="Sensibilidade da detecção">
@@ -180,7 +195,7 @@
     <ol>
       <li><i>1</i><span>Ligue a câmera e aguarde o <em>mapa da mão</em> carregar — o esqueleto dos seus dedos aparece desenhado em pontos de luz. Funciona com qualquer iluminação, mas no escuro a poeira fica mais bonita.</span></li>
       <li><i>2</i><span>As cordas são um <em>teclado enrolado</em>: cada corda tem duas notas (metade esquerda e direita), subindo como as teclas do piano — e cada nota veste <em>a cor do seu tom</em> (Dó vermelho, Mi verde, Lá violeta…), escura no grave, clara no agudo. <em>Roce a mão</em> pelas cordas e elas sussurram em arpejo; <em>dobre o dedo num estalo</em> e a nota soa forte na grade do beat. Deslize para curvar em semitons. <em class="g">Esquerda: Lá2–Si4.</em> <em class="a">Direita: Lá4–Si6.</em></span></li>
-      <li><i>3</i><span>No painel, <em>Cordas</em> gira o instrumento: <em>↔</em> cordas deitadas, <em>↕</em> harpa em pé, <em>Teclas</em> um piano cromático: a mão descansa na faixa central em silêncio, desce para a oitava grave, sobe para a aguda — brancas junto ao repouso, pretas na borda. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
+      <li><i>3</i><span>No painel, os botões de <em>Formato</em> giram o instrumento: <em>Teclas</em> é um piano cromático, <em>Cordas</em> deita as cordas, <em>Harpa</em> põe as cordas em pé. No teclado: a mão descansa na faixa central em silêncio, desce para a oitava grave, sobe para a aguda — brancas junto ao repouso, pretas na borda. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
     </ol>
     <button id="btnStart">Ligar a câmera</button>
     <div id="introErr"></div>
@@ -205,7 +220,7 @@ const S = {
   sens: 55, layers: [], recLayer: null, camOn: false, loopStart: 0,
   quant: 2,        // grade ao vivo: 0=livre, 2=colcheia, 1=semicolcheia
   fingerMode: 1,   // 1 = só o indicador belisca | 4 = todos os dedos
-  orient: "h",     // "h" = cordas horizontais | "v" = harpa (verticais)
+  orient: "p",     // "p" = teclas (padrão) | "h" = cordas deitadas | "v" = harpa
   timbre: "poeira",// poeira | cordas | piano | fuzz
 };
 const STEPS = 32;
@@ -312,12 +327,15 @@ buildKeys();
 const NKEYS = 24;
 /* qual tecla ocupa (x,y) — pretas têm prioridade, faixa neutra é silêncio */
 function keyAt(side, x, y){
-  if (Math.abs(y - .5) < NEUTRAL) return -1;
+  // margem de encosto: a tecla responde na beirada, não no miolo
+  const M = .012;
+  if (Math.abs(y - .5) < NEUTRAL - M) return -1;
   const arr = KEYS[side];
   for (let pass = 0; pass < 2; pass++){
     for (const k of arr){
       if (pass === 0 ? !k.black : k.black) continue;
-      if (x >= k.x0 && x < k.x1 && y >= k.y0 && y <= k.y1) return k.i;
+      if (x >= k.x0 - .004 && x < k.x1 + .004 &&
+          y >= k.y0 - M && y <= k.y1 + M) return k.i;
     }
   }
   return -1;
@@ -1021,8 +1039,8 @@ async function initMediaPipe(){
   try{
     mpHands = new window.Hands({ locateFile: f => MP_CDN + "/" + f });
     mpHands.setOptions({
-      maxNumHands: 2, modelComplexity: 1, selfieMode: true,
-      minDetectionConfidence: .6, minTrackingConfidence: .5,
+      maxNumHands: 2, modelComplexity: 0, selfieMode: true,
+      minDetectionConfidence: .55, minTrackingConfidence: .45,
     });
     mpHands.onResults(onHandResults);
     await mpHands.initialize();
@@ -1046,11 +1064,22 @@ function curlRatio(lm, tipI, pipI){
   const dp = Math.hypot(lm[pipI].x - w.x, lm[pipI].y - w.y);
   return dp > 1e-6 ? dt_ / dp : 1.5;
 }
-/* histerese: estica acima de 1.10 (arma), belisca abaixo de 1.05 (dispara) */
+/* gatilho RELATIVO: a referência é o seu próprio dedo esticado.
+   `ref` acompanha o máximo recente da razão de flexão (e decai devagar),
+   então o instrumento se calibra sozinho para cada mão, distância de
+   câmera e ângulo. Dispara com ~20% de fechamento — um toque curto e
+   parcial basta — ou antes disso, se o fechamento for veloz. */
 function processPluck(h, ratio, now){
-  h.curl = h.curl * .3 + ratio * .7;
-  if (h.curl > 1.10) h.ext = true;
-  if (h.ext && h.curl < 1.05 && h.aim !== null && now - h.cool > 110){
+  const dt = Math.min(.15, Math.max(.008, (now - (h.pt || (now - 33))) / 1000));
+  h.pt = now;
+  const prev = h.curl;
+  h.curl = h.curl * .18 + ratio * .82;        // pouca inércia = pouca latência
+  const vel = (h.curl - prev) / dt;           // <0 dobrando · >0 esticando
+  h.ref = Math.max(h.curl, (h.ref || h.curl) * .994, 1.05);
+  if (h.curl > h.ref * .93) h.ext = true;                        // rearmou
+  const fecha = h.curl < h.ref * .80 ||
+                (vel < -1.2 && h.curl < h.ref * .90);
+  if (h.ext && fecha && h.aim !== null && now - h.cool > 60){
     h.ext = false; h.cool = now;
     return true;
   }
@@ -1063,20 +1092,23 @@ function assignHand(lm, side, now){
     h.x = lm[8].x; h.y = lm[8].y; h.px = lm[9].x;
     for (const f of h.fingers){
       f.x = lm[f.tip].x; f.y = lm[f.tip].y;
+      f.rx = f.x; f.ry = f.y;
       f.curl = 1.3; f.ext = false; f.aim = null; f.brow = null; f.col = null;
+      f.ref = 0; f.pt = 0;
     }
   }
   h.on = true;
-  h.x += (lm[8].x - h.x) * .55;
-  h.y += (lm[8].y - h.y) * .55;
+  h.x += (lm[8].x - h.x) * .8;
+  h.y += (lm[8].y - h.y) * .8;
   h.px += (lm[9].x - h.px) * .5;          // palma: referência do slider
   h.glow = Math.min(1, h.glow + .2);
   for (let fi = 0; fi < h.fingers.length; fi++){
     const f = h.fingers[fi];
     const tip = lm[f.tip];
     const ratio = curlRatio(lm, f.tip, f.pip);
-    f.x += (tip.x - f.x) * .6;
-    f.y += (tip.y - f.y) * .6;
+    f.x += (tip.x - f.x) * .82;                 // menos inércia = reage na hora
+    f.y += (tip.y - f.y) * .82;
+    f.rx = tip.x; f.ry = tip.y;                 // ponta crua: detecção instantânea
     // modo 1 dedo: só o indicador arma e belisca (controle cirúrgico);
     // modo 4 dedos: cada um mira e belisca a corda sob a própria ponta
     if (S.fingerMode !== 4 && fi !== 0){
@@ -1084,13 +1116,15 @@ function assignHand(lm, side, now){
       f.curl = f.curl * .3 + ratio * .7;
       continue;
     }
-    // mira por dedo, travada durante a dobra (curl suavizado E instantâneo)
-    if (f.curl > 1.06 && ratio > 1.06){
+    // mira por dedo, travada durante a dobra — portão RELATIVO à
+    // referência de dedo esticado da própria mão (nunca um número fixo)
+    const gate = Math.max(1.02, (f.ref || 1.2) * .88);
+    if (f.curl > gate && ratio > gate){
       let ri, cell;
       if (PIANO()){
-        cell = keyAt(side, f.x, f.y);               // -1 na faixa neutra
+        cell = keyAt(side, f.rx, f.ry);             // -1 na faixa neutra
         ri = cell;
-        if (cell < 0){ f.aim = null; f.brow = null; }
+        if (cell < 0){ f.aim = null; f.brow = -1; }   // repouso: armado p/ soar ao entrar
       } else {
         ri = nearestString(side, f.x, f.y, .10);
         if (ri >= 0){
@@ -1101,7 +1135,7 @@ function assignHand(lm, side, now){
       if (ri >= 0){
         // roçar: entrou numa célula nova — trocar de corda exige o
         // núcleo dela; mesma corda dispara no cruzamento da célula
-        if (cell !== f.brow && now - (f.bcool || 0) > 70){
+        if (cell !== f.brow && now - (f.bcool || 0) > 45){
           const mudouCorda = f.brow === null || cellRow(f.brow) !== ri;
           const perto = PIANO() ? true
             : VERT()
@@ -1218,7 +1252,7 @@ const PLUCK_V = 1.0;      // velocidade (tela/seg) que caracteriza a dobra
 function mkFingers(){
   return [[8,6],[12,10],[16,14],[20,18]].map(fp => ({
     tip: fp[0], pip: fp[1], x:.5, y:.5, curl:1.3, ext:false, cool:0,
-    aim:null, brow:null, bcool:0, col:null }));
+    aim:null, brow:null, bcool:0, col:null, pt:0, ref:0, rx:.5, ry:.5 }));
 }
 const hands = {
   L: { on:false, x:.25, y:.9, px:undefined, vy:0, aim:null, armed:false, frames:0,
@@ -1294,10 +1328,10 @@ function pointerPlay(ev, isDown){
   }
   h.aim = cell;
   const now = performance.now();
-  if (isDown && now - h.cool > 110){
+  if (isDown && now - h.cool > 65){
     h.cool = now; h.mrow = cell;
     triggerNote(hand, cell, alongOf(x, y));    // clique = beliscão forte
-  } else if (!isDown && cell !== h.mrow && now - h.cool > 70){
+  } else if (!isDown && cell !== h.mrow && now - h.cool > 45){
     h.cool = now; h.mrow = cell;
     triggerBrush(hand, cell, alongOf(x, y));   // arrastar = roçar sussurrado
   }
@@ -1787,7 +1821,7 @@ function chipGroup(elId, options, get, set){
   for (const op of options){
     const b = document.createElement("button");
     b.className = "chip" + (get() === op[1] ? " sel" : "");
-    b.textContent = op[0];
+    if (/[<]/.test(op[0])) b.innerHTML = op[0]; else b.textContent = op[0];
     b.title = op[2];
     b.addEventListener("click", () => {
       set(op[1]);
@@ -1813,9 +1847,12 @@ chipGroup("soundChips", [
   ["Fuzz", "fuzz", "Distorção — solo rasgado e baixo sujo"],
 ], () => S.timbre, v => { S.timbre = v; });
 chipGroup("orientChips", [
-  ["\u2194", "h", "Cordas horizontais — altura da mão escolhe a corda"],
-  ["\u2195", "v", "Harpa — cordas em pé, graves à esquerda, agudos à direita"],
-  ["Teclas", "p", "Piano cromático — repouso no centro, oitava grave embaixo e aguda em cima"],
+  ['<span class="ic">\u25A5</span>Teclas', "p",
+   "Piano cromático — repouso no centro, oitava grave embaixo e aguda em cima"],
+  ['<span class="ic">\u2194</span>Cordas', "h",
+   "Cordas deitadas — a altura da mão escolhe a corda"],
+  ['<span class="ic">\u2195</span>Harpa', "v",
+   "Harpa — cordas em pé, graves à esquerda, agudos à direita"],
 ], () => S.orient, v => setOrient(v));
 function setOrient(o){
   if (S.orient === o) return;
