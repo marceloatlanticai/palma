@@ -180,7 +180,7 @@
     <ol>
       <li><i>1</i><span>Ligue a câmera e aguarde o <em>mapa da mão</em> carregar — o esqueleto dos seus dedos aparece desenhado em pontos de luz. Funciona com qualquer iluminação, mas no escuro a poeira fica mais bonita.</span></li>
       <li><i>2</i><span>As cordas são um <em>teclado enrolado</em>: cada corda tem duas notas (metade esquerda e direita), subindo como as teclas do piano — e cada nota veste <em>a cor do seu tom</em> (Dó vermelho, Mi verde, Lá violeta…), escura no grave, clara no agudo. <em>Roce a mão</em> pelas cordas e elas sussurram em arpejo; <em>dobre o dedo num estalo</em> e a nota soa forte na grade do beat. Deslize para curvar em semitons. <em class="g">Esquerda: Lá2–Si4.</em> <em class="a">Direita: Lá4–Si6.</em></span></li>
-      <li><i>3</i><span>No painel, <em>Cordas</em> gira o instrumento: <em>↔</em> cordas deitadas, <em>↕</em> harpa em pé, <em>Teclas</em> um piano de duas oitavas. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
+      <li><i>3</i><span>No painel, <em>Cordas</em> gira o instrumento: <em>↔</em> cordas deitadas, <em>↕</em> harpa em pé, <em>Teclas</em> um piano cromático: a mão descansa na faixa central em silêncio, desce para a oitava grave, sobe para a aguda — brancas junto ao repouso, pretas na borda. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
     </ol>
     <button id="btnStart">Ligar a câmera</button>
     <div id="introErr"></div>
@@ -251,14 +251,98 @@ function cellRGBA(side, cell, a){
         célula de baixo = nota-âncora, de cima = grau vizinho */
 const VERT = () => S.orient !== "h";       // eixo vertical (harpa e teclas)
 const PIANO = () => S.orient === "p";
+
+/* ---------- teclado de verdade (modo "p") ----------
+   Faixa NEUTRA no centro: repouso, nenhuma nota. Duas faixas de teclas
+   por mão — a de baixo é a oitava grave, a de cima a aguda. Cada faixa é
+   uma oitava CROMÁTICA: 7 brancas encostadas + 5 pretas embutidas na
+   borda externa (longe do centro), como num piano. Vindo do repouso o
+   dedo encontra sempre brancas; os acidentes exigem ir mais longe.
+   Esq: Dó2–Si3 · Dir: Dó4–Si5 — quatro oitavas ao todo. */
+const KEYS = { L: [], R: [] };
+const CHROM = ["Dó","Dó#","Ré","Ré#","Mi","Fá","Fá#","Sol","Sol#","Lá","Lá#","Si"];
+const WHITE_OF = [0, 2, 4, 5, 7, 9, 11];          // graus brancos
+const BLACK_AT = { 1:1, 3:2, 6:4, 8:5, 10:6 };    // preta -> fronteira branca
+var NEUTRAL = .09;                                // meia-faixa neutra
+function buildKeys(){
+  // ~100px de cada lado do centro, dentro de limites saudáveis
+  NEUTRAL = Math.max(.075, Math.min(.16, 100 / Math.max(360, innerHeight)));
+  for (const side of ["L", "R"]){
+    const arr = []; KEYS[side] = arr;
+    const x0 = side === "L" ? .018 : .518, wAll = .464, w7 = wAll / 7;
+    const root = side === "L" ? 36 : 60;           // Dó2 · Dó4
+    for (let band = 0; band < 2; band++){
+      const yT = band ? .052 : .5 + NEUTRAL;       // band 1 = faixa de cima
+      const yB = band ? .5 - NEUTRAL : .948;
+      const h = yB - yT;
+      for (let n = 0; n < 12; n++){
+        const midi = root + band * 12 + n;
+        const black = BLACK_AT[n] !== undefined;
+        const hue = (midi % 12) * 30;              // Dó = 0° = vermelho
+        // registro: grave escuro e saturado, agudo claro
+        const reg = (midi - 36) / 48;
+        const l = black ? 20 + reg * 26 : 32 + reg * 40;
+        const sa = black ? 62 : 78;
+        let kx0, kx1, ky0, ky1;
+        if (!black){
+          const wi = WHITE_OF.indexOf(n);
+          kx0 = x0 + wi * w7; kx1 = kx0 + w7;
+          ky0 = yT; ky1 = yB;
+        } else {
+          const b = BLACK_AT[n];
+          kx0 = x0 + b * w7 - w7 * .31; kx1 = kx0 + w7 * .62;
+          // pretas na borda EXTERNA da faixa (longe do centro)
+          if (band){ ky0 = yT; ky1 = yT + h * .46; }
+          else { ky0 = yB - h * .46; ky1 = yB; }
+        }
+        arr.push({
+          i: arr.length, midi, name: CHROM[n], black, band, hue,
+          x0: kx0, x1: kx1, y0: ky0, y1: ky1,
+          cx: (kx0 + kx1) / 2, cy: (ky0 + ky1) / 2,
+          css: "hsl(" + hue + "," + sa + "%," + l + "%)",
+          hot: "hsl(" + hue + "," + Math.min(100, sa + 10) + "%," +
+               Math.min(88, l + 22) + "%)",
+          l, s: sa,
+        });
+      }
+    }
+  }
+}
+buildKeys();
+const NKEYS = 24;
+/* qual tecla ocupa (x,y) — pretas têm prioridade, faixa neutra é silêncio */
+function keyAt(side, x, y){
+  if (Math.abs(y - .5) < NEUTRAL) return -1;
+  const arr = KEYS[side];
+  for (let pass = 0; pass < 2; pass++){
+    for (const k of arr){
+      if (pass === 0 ? !k.black : k.black) continue;
+      if (x >= k.x0 && x < k.x1 && y >= k.y0 && y <= k.y1) return k.i;
+    }
+  }
+  return -1;
+}
+function keyRGBA(side, i, a){
+  const k = KEYS[side][i];
+  return "hsla(" + k.hue + "," + k.s + "%," + Math.min(84, k.l + 16) + "%," + a + ")";
+}
 function strPos(side, i){           // coordenada fixa da corda/tecla i
   if (!VERT()) return rowY(i);                       // y (horizontal)
-  if (PIANO()) return (side === "L" ? .07 : .57) + i * .0545;   // teclas
+  if (PIANO()) return KEYS[side][i] ? KEYS[side][i].cx : .5;
   return (side === "L" ? .055 : .545) + i * .057;    // harpa
 }
 /* qual corda/tecla um índice de célula habita (p/ física e pulsos) */
 function cellRow(cell){
-  return PIANO() ? (cell < ROWS ? cell : cell % 7) : (cell >> 1);
+  return PIANO() ? cell : (cell >> 1);
+}
+/* frequência de uma célula, respeitando o layout em que foi tocada */
+function cellFreq(side, cell, mode){
+  const m = mode || S.orient;
+  if (m === "p"){
+    const k = KEYS[side][cell];
+    return k ? HZ(k.midi) : HZ(60);
+  }
+  return side === "L" ? freqL(cell) : freqR(cell);
 }
 const alongOf = (x, y) => VERT() ? y : x;
 function nearestString(side, x, y, tol){
@@ -579,10 +663,11 @@ const DRUMS = {
 };
 
 /* ---------- notas: disparo, gravação, replay ---------- */
-function playNote(hand, cell, when){
+function playNote(hand, cell, when, mode){
   if (!AC) return null;
   const t = when || AC.currentTime;
-  return hand === "L" ? playBass(freqL(cell), t) : playPluck(freqR(cell), t);
+  const f = cellFreq(hand, cell, mode);
+  return hand === "L" ? playBass(f, t) : playPluck(f, t);
 }
 /* ---------- slider de semitons ----------
    Depois do beliscão, deslizar a mão na horizontal curva a nota
@@ -619,8 +704,9 @@ function triggerBrush(hand, cell, x){
   initAudio();
   const t = AC.currentTime;
   const row = cellRow(cell);
-  if (hand === "L") playBass(freqL(cell), t, .28);
-  else playPluck(freqR(cell), t, .3);
+  const f = cellFreq(hand, cell);
+  if (hand === "L") playBass(f, t, .28);
+  else playPluck(f, t, .3);
   plucks.push({ hand, row, x, t0: performance.now(),
     dur: hand === "L" ? .5 : .85, amp: .4 });
   rowPulse[hand][row] = Math.max(rowPulse[hand][row], .35);
@@ -655,14 +741,14 @@ function triggerNote(hand, cell, tipX){
   if (S.recording && S.playing && S.recLayer){
     const off = (t - S.loopStart + loopDur()) % loopDur();
     const step = Math.round(off / stepDur()) % STEPS;
-    const key = hand + cell;
+    const key = hand + cell + S.orient;
     if (!S.recLayer.steps.some(e => e.step === step && e.key === key)){
-      S.recLayer.steps.push({ step, key, x: tipX });
+      S.recLayer.steps.push({ step, key, x: tipX, cell, m: S.orient, hand });
       if (hand === "L") S.recLayer.warm++; else S.recLayer.cool++;
     }
   }
 }
-const rowPulse = { L: new Array(ROWS).fill(0), R: new Array(ROWS).fill(0) };
+const rowPulse = { L: new Array(24).fill(0), R: new Array(24).fill(0) };
 const waves = [];
 const plucks = [];   // excitações físicas: vibração (R) e clareira (L)
 
@@ -715,9 +801,10 @@ function scheduleStep(step, t){
     if (ly.muted || ly === S.recLayer) continue;
     for (const e of ly.steps){
       if (e.step !== step) continue;
-      const hand = e.key[0], cell = +e.key.slice(1);
-      const row = cellRow(cell);
-      playNote(hand, cell, t);
+      const hand = e.hand || e.key[0];
+      const cell = e.cell !== undefined ? e.cell : +e.key.slice(1);
+      const row = (e.m || S.orient) === "p" ? cell : (cell >> 1);
+      playNote(hand, cell, t, e.m);
       const dtms = Math.max(0, (t - AC.currentTime) * 1000);
       setTimeout(() => {
         rowPulse[hand][row] = Math.max(rowPulse[hand][row], .8);
@@ -806,19 +893,6 @@ function densityAt(x, y){
       const dy = y - rowY(i);
       d += Math.exp(-(dy * dy) / (2 * .011 * .011)) * .85;
     }
-  } else if (PIANO()){
-    const side = x < .5 ? "L" : "R";
-    if (y > .175 && y < .855){
-      for (let i = 0; i < ROWS; i++){
-        const dx = Math.abs(x - strPos(side, i));
-        if (dx < .0225){
-          const eb = Math.min(1, (.0225 - dx) / .006);        // borda da tecla
-          const ev = Math.min(1, (y - .175) / .022, (.855 - y) / .022);
-          d += .8 * eb * ev;
-          break;
-        }
-      }
-    }
   } else {
     const side = x < .5 ? "L" : "R";
     for (let i = 0; i < ROWS; i++){
@@ -832,7 +906,50 @@ function densityAt(x, y){
   d *= seam < .012 ? seam / .012 : 1;
   return Math.min(1, d);
 }
+function mkDot(x, y, ri, side, fill, hot){
+  return {
+    x, y, ri, side, fill, hot,
+    r: .55 + Math.random() * .85 + (ri >= 0 ? .25 : 0),
+    a: .16 + Math.random() * .3 + (ri >= 0 ? .18 : 0),
+    p1: Math.random() * 6.28, p2: Math.random() * 6.28, p3: Math.random() * 6.28,
+    f1: .35 + Math.random() * .55, f2: .3 + Math.random() * .5,
+    amp: (.35 + Math.random() * .45),
+    heat: 0,
+  };
+}
+/* teclado: cada tecla é um bloco denso de poeira, com costura fina
+   nas bordas para as teclas encostadas continuarem legíveis */
+function buildPianoDots(){
+  DOTS.length = 0;
+  let area = 0;
+  for (const side of ["L", "R"])
+    for (const k of KEYS[side]) area += (k.x1 - k.x0) * (k.y1 - k.y0);
+  const dens = (N_DOTS * .93) / area;
+  for (const side of ["L", "R"]){
+    for (const k of KEYS[side]){
+      const w = k.x1 - k.x0, h = k.y1 - k.y0;
+      const n = Math.max(24, Math.round(w * h * dens));
+      const mx = Math.min(.0022, w * .07), my = Math.min(.006, h * .05);
+      for (let i = 0; i < n; i++){
+        const x = k.x0 + mx + Math.random() * (w - 2 * mx);
+        const y = k.y0 + my + Math.random() * (h - 2 * my);
+        DOTS.push(mkDot(x, y, k.i, side, k.css, k.hot));
+      }
+    }
+  }
+  // véu tênue na faixa neutra: o repouso também é visível
+  const nAmb = Math.round(N_DOTS * .07);
+  for (let i = 0; i < nAmb; i++){
+    const x = Math.random(), y = .5 + (Math.random() - .5) * 2 * NEUTRAL * .92;
+    const side = x < .5 ? "L" : "R";
+    const d = mkDot(x, y, -1, side, "rgb(96,104,132)", "rgb(150,158,190)");
+    d.a *= .5; d.r *= .8;
+    DOTS.push(d);
+  }
+  DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 : 0);
+}
 function buildDots(){
+  if (PIANO()) return buildPianoDots();
   DOTS.length = 0;
   let tent = 0;
   while (DOTS.length < N_DOTS && tent++ < N_DOTS * 90){
@@ -841,27 +958,17 @@ function buildDots(){
     const dens = densityAt(x, y);
     if (Math.random() >= Math.pow(dens, 1.3)) continue;
     const side = x < .5 ? "L" : "R";
-    let ri = nearestString(side, x, y, PIANO() ? .0235 : VERT() ? .028 : .05);
-    if (PIANO() && (y < .19 || y > .845)) ri = -1;
+    const ri = nearestString(side, x, y, VERT() ? .028 : .05);
     let fill, hot;
     if (ri >= 0){
-      const c = PIANO() ? CELLS[side][ri]
-        : CELLS[side][ri * 2 + (VERT() ? (y > .50 ? 0 : 1)
+      const c = CELLS[side][ri * 2 + (VERT() ? (y > .50 ? 0 : 1)
           : (x < (side === "L" ? .25 : .75) ? 0 : 1))];
       fill = c.css; hot = c.hot;
     } else {
       fill = side === "L" ? "rgb(255,160,90)" : "rgb(130,215,255)";
       hot = side === "L" ? "rgb(255,120,40)" : "rgb(90,200,255)";
     }
-    DOTS.push({
-      x, y, ri, side, fill, hot,
-      r: .55 + Math.random() * .85 + (ri >= 0 ? .25 : 0),
-      a: .16 + Math.random() * .3 + (ri >= 0 ? .18 : 0),
-      p1: Math.random() * 6.28, p2: Math.random() * 6.28, p3: Math.random() * 6.28,
-      f1: .35 + Math.random() * .55, f2: .3 + Math.random() * .5,
-      amp: (.35 + Math.random() * .45),
-      heat: 0,
-    });
+    DOTS.push(mkDot(x, y, ri, side, fill, hot));
   }
   // ordena por cor: minimiza trocas de fillStyle no render
   DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 : 0);
@@ -979,21 +1086,24 @@ function assignHand(lm, side, now){
     }
     // mira por dedo, travada durante a dobra (curl suavizado E instantâneo)
     if (f.curl > 1.06 && ratio > 1.06){
-      let ri = nearestString(side, f.x, f.y, .10);
-      if (PIANO() && (f.y < .13 || f.y > .91)) ri = -1;
-      if (ri >= 0){
-        let cell;
-        if (PIANO()) cell = ri;
-        else {
+      let ri, cell;
+      if (PIANO()){
+        cell = keyAt(side, f.x, f.y);               // -1 na faixa neutra
+        ri = cell;
+        if (cell < 0){ f.aim = null; f.brow = null; }
+      } else {
+        ri = nearestString(side, f.x, f.y, .10);
+        if (ri >= 0){
           f.col = cellCol(side, f.x, f.y, f.col);
           cell = ri * 2 + f.col;
         }
+      }
+      if (ri >= 0){
         // roçar: entrou numa célula nova — trocar de corda exige o
         // núcleo dela; mesma corda dispara no cruzamento da célula
         if (cell !== f.brow && now - (f.bcool || 0) > 70){
           const mudouCorda = f.brow === null || cellRow(f.brow) !== ri;
-          const perto = PIANO()
-            ? Math.abs(f.x - strPos(side, ri)) < .023
+          const perto = PIANO() ? true
             : VERT()
               ? Math.abs(f.x - strPos(side, ri)) < .026
               : Math.abs(f.y - rowY(ri)) < .038;
@@ -1147,9 +1257,13 @@ function trackHands(mask, dt){
     h.glow = Math.min(1, h.glow + .15);
     // mira: com o dedo calmo, a corda mais próxima fica selecionada
     if (Math.abs(h.vy) < .3){
-      const ri = nearestString(hand, h.x, h.y, .10);
-      if (ri >= 0)
-        h.aim = PIANO() ? ri : ri * 2 + cellCol(hand, h.x, h.y, null);
+      if (PIANO()){
+        const k = keyAt(hand, h.x, h.y);
+        h.aim = k >= 0 ? k : null;
+      } else {
+        const ri = nearestString(hand, h.x, h.y, .10);
+        if (ri >= 0) h.aim = ri * 2 + cellCol(hand, h.x, h.y, null);
+      }
       h.armed = true;
     }
     // beliscão: estalo para baixo com a mira travada
@@ -1169,9 +1283,15 @@ function pointerPlay(ev, isDown){
   const hand = x < .5 ? "L" : "R";
   const h = hands[hand];
   h.x = x; h.y = y; h.on = true; h.glow = 1;
-  const ri = nearestString(hand, x, y, .10);
-  if (ri < 0) return;
-  const cell = PIANO() ? ri : ri * 2 + cellCol(hand, x, y, null);
+  let cell;
+  if (PIANO()){
+    cell = keyAt(hand, x, y);
+    if (cell < 0){ h.aim = null; h.mrow = null; return; }
+  } else {
+    const ri = nearestString(hand, x, y, .10);
+    if (ri < 0) return;
+    cell = ri * 2 + cellCol(hand, x, y, null);
+  }
   h.aim = cell;
   const now = performance.now();
   if (isDown && now - h.cool > 110){
@@ -1446,8 +1566,20 @@ function draw(){
       // dedo dobrando fica incandescente
       for (const f of h.fingers){
         if (f.aim !== null && f.curl > 1.05){
-          sctx.strokeStyle = cellRGBA(side, f.aim, .6);
           sctx.lineWidth = 2 * dpr;
+          if (PIANO()){
+            const k = KEYS[side][f.aim];
+            if (k){
+              sctx.strokeStyle = keyRGBA(side, f.aim, .65);
+              sctx.beginPath();
+              const yy = (k.band ? k.y1 : k.y0) * H;
+              sctx.moveTo(k.x0 * W + 3 * dpr, yy);
+              sctx.lineTo(k.x1 * W - 3 * dpr, yy);
+              sctx.stroke();
+            }
+            continue;
+          }
+          sctx.strokeStyle = cellRGBA(side, f.aim, .6);
           sctx.beginPath();
           if (!VERT()){
             const ay = rowY(cellRow(f.aim)) * H;
@@ -1474,16 +1606,36 @@ function draw(){
   // nomes das notas em cada célula, pintados com a cor da altura
   sctx.textBaseline = "middle"; sctx.textAlign = "center";
   sctx.font = (9.5 * dpr) + "px ui-monospace, monospace";
+  if (PIANO()){
+    for (const side of ["L", "R"]){
+      for (const k of KEYS[side]){
+        const a = .42 + rowPulse[side][k.i] * .55;
+        sctx.font = ((k.black ? 8 : 9.5) * dpr) + "px ui-monospace, monospace";
+        sctx.fillStyle = "hsla(" + k.hue + "," + k.s + "%," +
+          Math.min(86, k.l + 30) + "%," + a + ")";
+        // etiqueta na ponta externa da tecla, longe do centro
+        sctx.fillText(k.name, k.cx * W,
+          (k.band ? k.y0 * H + 11 * dpr : k.y1 * H - 11 * dpr));
+      }
+    }
+    // marca da faixa neutra: onde a mão descansa
+    sctx.strokeStyle = "rgba(140,150,185,.16)";
+    sctx.lineWidth = 1 * dpr;
+    sctx.setLineDash([6 * dpr, 10 * dpr]);
+    for (const yy of [.5 - NEUTRAL, .5 + NEUTRAL]){
+      sctx.beginPath();
+      sctx.moveTo(0, yy * H); sctx.lineTo(W, yy * H);
+      sctx.stroke();
+    }
+    sctx.setLineDash([]);
+  }
   for (const side of ["L", "R"]){
-    const nMax = PIANO() ? ROWS : NCELLS;
+    const nMax = PIANO() ? 0 : NCELLS;
     for (let n = 0; n < nMax; n++){
       const c = CELLS[side][n];
-      const row = PIANO() ? n : n >> 1, col = n & 1;
+      const row = n >> 1, col = n & 1;
       let cx, y;
-      if (PIANO()){
-        cx = strPos(side, n) * W;
-        y = .885 * H;
-      } else if (!VERT()){
+      if (!VERT()){
         cx = (side === "L" ? (col ? .375 : .125) : (col ? .875 : .625)) * W;
         y = rowY(row) * H - 11 * dpr;
       } else {
@@ -1507,7 +1659,18 @@ function draw(){
     // mira: segmento da corda acende na cor da célula selecionada
     if (h.on && h.aim !== null){
       sctx.lineWidth = 2.2 * dpr;
-      if (!VERT()){
+      if (PIANO()){
+        const k = KEYS[hand][h.aim];
+        if (k){
+          sctx.strokeStyle = keyRGBA(hand, h.aim, .7 * h.glow);
+          sctx.lineWidth = 1.8 * dpr;
+          sctx.strokeRect(k.x0 * W, k.y0 * H,
+            (k.x1 - k.x0) * W, (k.y1 - k.y0) * H);
+          sctx.fillStyle = keyRGBA(hand, h.aim, .1 * h.glow);
+          sctx.fillRect(k.x0 * W, k.y0 * H,
+            (k.x1 - k.x0) * W, (k.y1 - k.y0) * H);
+        }
+      } else if (!VERT()){
         const ay = rowY(cellRow(h.aim)) * H;
         const seg = W * .13;
         const lg = sctx.createLinearGradient(cx - seg, ay, cx + seg, ay);
@@ -1652,7 +1815,7 @@ chipGroup("soundChips", [
 chipGroup("orientChips", [
   ["\u2194", "h", "Cordas horizontais — altura da mão escolhe a corda"],
   ["\u2195", "v", "Harpa — cordas em pé, graves à esquerda, agudos à direita"],
-  ["Teclas", "p", "Piano — duas oitavas de teclas largas, grave à esq., aguda à dir."],
+  ["Teclas", "p", "Piano cromático — repouso no centro, oitava grave embaixo e aguda em cima"],
 ], () => S.orient, v => setOrient(v));
 function setOrient(o){
   if (S.orient === o) return;
