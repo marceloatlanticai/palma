@@ -79,7 +79,7 @@
   .lbl.hot{color:var(--osso);opacity:.85}
   #orientChips{gap:0;border:1px solid rgba(200,210,240,.3);border-radius:10px;
     overflow:hidden;background:rgba(233,227,210,.05);flex-wrap:nowrap}
-  #orientChips .chip{border:none;border-radius:0;padding:8px 13px;font-size:10.5px;
+  #orientChips .chip{border:none;border-radius:0;padding:8px 11px;font-size:10.5px;
     letter-spacing:.1em;color:var(--dim);border-right:1px solid var(--line);
     display:flex;align-items:center;gap:6px;white-space:nowrap}
   #orientChips .chip:last-child{border-right:none}
@@ -270,7 +270,8 @@ function cellRGBA(side, cell, a){
    "v": harpa — cordas verticais, graves à esq. subindo p/ agudos à dir.,
         célula de baixo = nota-âncora, de cima = grau vizinho */
 const VERT = () => S.orient !== "h";       // eixo vertical (harpa e teclas)
-const PIANO = () => S.orient === "p";
+const PIANO = () => S.orient === "p" || S.orient === "g";
+const GLYPH = () => S.orient === "g";      // teclado escrito com letras
 
 /* ---------- teclado de verdade (modo "p") ----------
    Faixa NEUTRA no centro: repouso, nenhuma nota. Duas faixas de teclas
@@ -281,6 +282,7 @@ const PIANO = () => S.orient === "p";
    Esq: Dó2–Si3 · Dir: Dó4–Si5 — quatro oitavas ao todo. */
 const KEYS = { L: [], R: [] };
 const CHROM = ["Dó","Dó#","Ré","Ré#","Mi","Fá","Fá#","Sol","Sol#","Lá","Lá#","Si"];
+const CHROM_EN = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const WHITE_OF = [0, 2, 4, 5, 7, 9, 11];          // graus brancos
 const BLACK_AT = { 1:1, 3:2, 6:4, 8:5, 10:6 };    // preta -> fronteira branca
 var NEUTRAL = .09;                                // meia-faixa neutra
@@ -316,7 +318,7 @@ function buildKeys(){
           else { ky0 = yB - h * .46; ky1 = yB; }
         }
         arr.push({
-          i: arr.length, midi, name: CHROM[n], black, band, hue,
+          i: arr.length, midi, name: CHROM[n], en: CHROM_EN[n], black, band, hue,
           x0: kx0, x1: kx1, y0: ky0, y1: ky1,
           cx: (kx0 + kx1) / 2, cy: (ky0 + ky1) / 2,
           css: "hsl(" + hue + "," + sa + "%," + l + "%)",
@@ -911,6 +913,7 @@ let AW = 208, AH = 117;
    nas cordas horizontais — a tela vira poeira com estrutura musical */
 const DOTS = [];
 const N_DOTS = 4200;
+const GFONT = [5.1, 6.6, 8.4];     // três corpos de letra (modo glifos)
 function densityAt(x, y){
   let d = .045;                                     // poeira ambiente
   if (!VERT()){
@@ -946,19 +949,28 @@ function mkDot(x, y, ri, side, fill, hot){
    nas bordas para as teclas encostadas continuarem legíveis */
 function buildPianoDots(){
   DOTS.length = 0;
+  const gl = GLYPH();
   let area = 0;
   for (const side of ["L", "R"])
     for (const k of KEYS[side]) area += (k.x1 - k.x0) * (k.y1 - k.y0);
-  const dens = (N_DOTS * .93) / area;
+  // letras ocupam bem mais espaço que pontos: campo mais esparso
+  const dens = (N_DOTS * (gl ? .86 : .93)) / area;
   for (const side of ["L", "R"]){
     for (const k of KEYS[side]){
       const w = k.x1 - k.x0, h = k.y1 - k.y0;
-      const n = Math.max(24, Math.round(w * h * dens));
-      const mx = Math.min(.0022, w * .07), my = Math.min(.006, h * .05);
+      const n = Math.max(gl ? 22 : 24, Math.round(w * h * dens));
+      const mx = Math.min(gl ? .0035 : .0022, w * (gl ? .10 : .07));
+      const my = Math.min(gl ? .007 : .006, h * (gl ? .035 : .05));
       for (let i = 0; i < n; i++){
         const x = k.x0 + mx + Math.random() * (w - 2 * mx);
         const y = k.y0 + my + Math.random() * (h - 2 * my);
-        DOTS.push(mkDot(x, y, k.i, side, k.css, k.hot));
+        const d = mkDot(x, y, k.i, side, k.css, k.hot);
+        if (gl){
+          d.ch = k.en;                       // a letra da própria nota
+          d.fb = d.r < .95 ? 0 : d.r < 1.25 ? 1 : 2;   // 3 corpos naturais
+          d.a = Math.min(.92, d.a * 1.5);
+        }
+        DOTS.push(d);
       }
     }
   }
@@ -971,7 +983,8 @@ function buildPianoDots(){
     d.a *= .5; d.r *= .8;
     DOTS.push(d);
   }
-  DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 : 0);
+  DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 :
+                      (a.fb || 0) - (b.fb || 0));
 }
 function buildDots(){
   if (PIANO()) return buildPianoDots();
@@ -1479,7 +1492,9 @@ function draw(){
   // ---- pontos: passe único ordenado por cor; heat em passe aditivo ----
   const heatDots = [];
   const decay = Math.exp(-dt * 3.2);
-  let lastFill = null;
+  let lastFill = null, lastFB = -1;
+  const glyphs = GLYPH();
+  if (glyphs){ sctx.textAlign = "center"; sctx.textBaseline = "middle"; }
   {
     for (const p of DOTS){
       const side = p.side;
@@ -1575,21 +1590,39 @@ function draw(){
       const al = Math.min(1, p.a + Math.sin(t*.8 + p.p1)*.06 + p.heat*.55 + glow*.8
         + beatPulse * .06);
       sctx.globalAlpha = al;
-      sctx.beginPath();
-      sctx.arc(px, py, rr, 0, 6.2832);
-      sctx.fill();
+      if (glyphs && p.ch){
+        if (p.fb !== lastFB){
+          sctx.font = "600 " + (GFONT[p.fb] * dpr) +
+            "px ui-monospace, SFMono-Regular, monospace";
+          lastFB = p.fb;
+        }
+        sctx.fillText(p.ch, px, py);
+      } else {
+        sctx.beginPath();
+        sctx.arc(px, py, rr, 0, 6.2832);
+        sctx.fill();
+      }
       if (p.heat > .25 || glow > .4)
-        heatDots.push([px, py, rr, Math.max(p.heat, glow), p.hot]);
+        heatDots.push([px, py, rr, Math.max(p.heat, glow), p.hot, p.ch, p.fb]);
     }
   }
   // passe aditivo: a versão incandescente da cor de cada célula
   sctx.globalCompositeOperation = "lighter";
   for (const hd of heatDots){
-    sctx.globalAlpha = hd[3] * .35;
+    sctx.globalAlpha = hd[3] * (glyphs && hd[5] ? .55 : .35);
     sctx.fillStyle = hd[4];
-    sctx.beginPath();
-    sctx.arc(hd[0], hd[1], hd[2] * 1.6, 0, 6.2832);
-    sctx.fill();
+    if (glyphs && hd[5]){
+      if (hd[6] !== lastFB){
+        sctx.font = "600 " + (GFONT[hd[6]] * dpr) +
+          "px ui-monospace, SFMono-Regular, monospace";
+        lastFB = hd[6];
+      }
+      sctx.fillText(hd[5], hd[0], hd[1]);
+    } else {
+      sctx.beginPath();
+      sctx.arc(hd[0], hd[1], hd[2] * 1.6, 0, 6.2832);
+      sctx.fill();
+    }
   }
   sctx.globalCompositeOperation = "source-over";
   sctx.globalAlpha = 1;
@@ -1671,7 +1704,7 @@ function draw(){
   // nomes das notas em cada célula, pintados com a cor da altura
   sctx.textBaseline = "middle"; sctx.textAlign = "center";
   sctx.font = (9.5 * dpr) + "px ui-monospace, monospace";
-  if (PIANO()){
+  if (PIANO() && !GLYPH()){
     for (const side of ["L", "R"]){
       for (const k of KEYS[side]){
         const a = .42 + rowPulse[side][k.i] * .55;
@@ -1683,6 +1716,10 @@ function draw(){
           (k.band ? k.y0 * H + 11 * dpr : k.y1 * H - 11 * dpr));
       }
     }
+    marcaRepouso();
+  }
+  if (GLYPH()) marcaRepouso();
+  function marcaRepouso(){
     // marca da faixa neutra: onde a mão descansa
     sctx.strokeStyle = "rgba(140,150,185,.16)";
     sctx.lineWidth = 1 * dpr;
@@ -1880,6 +1917,8 @@ chipGroup("soundChips", [
 chipGroup("orientChips", [
   ['<span class="ic">\u25A5</span>Teclas', "p",
    "Piano cromático — repouso no centro, oitava grave embaixo e aguda em cima"],
+  ['<span class="ic">\u2261</span>Teclas 2', "g",
+   "Mesmo teclado, escrito com as letras das notas (A B C D E F G)"],
   ['<span class="ic">\u2194</span>Cordas', "h",
    "Cordas deitadas — a altura da mão escolhe a corda"],
   ['<span class="ic">\u2195</span>Harpa', "v",
