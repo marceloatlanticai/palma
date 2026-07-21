@@ -39,7 +39,7 @@
   @keyframes blink{50%{opacity:.25}}
 
   #panel{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
-    width:min(1020px,calc(100% - 20px));z-index:6;
+    width:min(1120px,calc(100% - 20px));z-index:6;
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     padding:10px 14px 12px}
@@ -53,6 +53,10 @@
   #panel.recording{border-color:rgba(255,77,94,.55);box-shadow:0 0 26px rgba(255,77,94,.16)}
 
   .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row.primary{padding-bottom:9px;margin-bottom:9px;
+    border-bottom:1px solid rgba(120,132,170,.14)}
+  .row.secondary{gap:8px;opacity:.9}
+  .row.secondary .chip{padding:5px 9px}
   .sep{width:1px;height:26px;background:var(--line);flex:none}
   .lbl{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);flex:none}
 
@@ -154,35 +158,36 @@
 
 <div id="panel">
   <div id="loopbar"><div class="ticks"></div><div id="playhead"></div></div>
-  <div class="row">
+  <div class="row primary">
     <button id="btnRec" title="Gravar uma camada (R)">Gravar</button>
     <button id="btnPlay" title="Tocar / parar o ciclo (espaço)">&#9654; Tocar</button>
     <div class="sep"></div>
     <span class="lbl hot">Formato</span>
     <div class="row" id="orientChips"></div>
     <div class="sep"></div>
-    <div id="layers"><span id="layersEmpty">nenhuma camada gravada</span></div>
+    <span class="lbl hot">Som</span>
+    <div class="row" id="soundChips" style="gap:5px"></div>
     <div class="sep"></div>
+    <div id="layers"><span id="layersEmpty">nenhuma camada gravada</span></div>
+  </div>
+  <div class="row secondary">
     <span class="lbl">BPM</span>
     <div class="stepper">
       <button id="bpmDown">&minus;</button><output id="bpmOut">100</output><button id="bpmUp">+</button>
     </div>
+    <button id="btnMetro" class="chip" title="Metrônomo">Metrôn.</button>
     <div class="sep"></div>
     <span class="lbl">Bateria</span>
     <div class="row" id="styles" style="gap:5px"></div>
     <input type="range" id="drumVol" min="0" max="100" value="75" title="Volume da bateria">
     <div class="sep"></div>
-    <span class="lbl">Som</span>
-    <div class="row" id="soundChips" style="gap:5px"></div>
-    <div class="sep"></div>
-    <button id="btnMetro" class="chip" title="Metrônomo">Metrôn.</button>
-    <div class="sep"></div>
     <span class="lbl">Grade</span>
     <div class="row" id="quantChips" style="gap:5px"></div>
+    <div class="sep"></div>
     <span class="lbl">Dedos</span>
     <div class="row" id="fingerChips" style="gap:5px"></div>
     <div class="sep"></div>
-    <span class="lbl opt">Sensibilidade</span>
+    <span class="lbl opt">Sensib.</span>
     <input type="range" id="sens" min="0" max="100" value="55" title="Sensibilidade da detecção">
     <button id="btnHelp" class="chip" title="Instruções">?</button>
   </div>
@@ -194,7 +199,7 @@
     <div class="sub">um instrumento de poeira e luz</div>
     <ol>
       <li><i>1</i><span>Ligue a câmera e aguarde o <em>mapa da mão</em> carregar — o esqueleto dos seus dedos aparece desenhado em pontos de luz. Funciona com qualquer iluminação, mas no escuro a poeira fica mais bonita.</span></li>
-      <li><i>2</i><span>As cordas são um <em>teclado enrolado</em>: cada corda tem duas notas (metade esquerda e direita), subindo como as teclas do piano — e cada nota veste <em>a cor do seu tom</em> (Dó vermelho, Mi verde, Lá violeta…), escura no grave, clara no agudo. <em>Roce a mão</em> pelas cordas e elas sussurram em arpejo; <em>dobre o dedo num estalo</em> e a nota soa forte na grade do beat. Deslize para curvar em semitons. <em class="g">Esquerda: Lá2–Si4.</em> <em class="a">Direita: Lá4–Si6.</em></span></li>
+      <li><i>2</i><span>As cordas são um <em>teclado enrolado</em>: cada corda tem duas notas (metade esquerda e direita), subindo como as teclas do piano — e cada nota veste <em>a cor do seu tom</em> (Dó vermelho, Mi verde, Lá violeta…), escura no grave, clara no agudo. <em>Roce a mão</em> pelas cordas e elas sussurram em arpejo; <em>dobre o dedo num estalo</em> e a nota soa forte na grade do beat. Deslize para curvar em semitons, ou <em>trema o dedo em movimentos curtos</em> para dar vibrato à nota. <em class="g">Esquerda: Lá2–Si4.</em> <em class="a">Direita: Lá4–Si6.</em></span></li>
       <li><i>3</i><span>No painel, os botões de <em>Formato</em> giram o instrumento: <em>Teclas</em> é um piano cromático, <em>Cordas</em> deita as cordas, <em>Harpa</em> põe as cordas em pé. No teclado: a mão descansa na faixa central em silêncio, desce para a oitava grave, sobe para a aguda — brancas junto ao repouso, pretas na borda. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
     </ol>
     <button id="btnStart">Ligar a câmera</button>
@@ -328,7 +333,7 @@ const NKEYS = 24;
 /* qual tecla ocupa (x,y) — pretas têm prioridade, faixa neutra é silêncio */
 function keyAt(side, x, y){
   // margem de encosto: a tecla responde na beirada, não no miolo
-  const M = .012;
+  const M = .018;
   if (Math.abs(y - .5) < NEUTRAL - M) return -1;
   const arr = KEYS[side];
   for (let pass = 0; pass < 2; pass++){
@@ -707,7 +712,9 @@ function updateBends(){
       const v = vs[i];
       if (tnow > v.until){ vs.splice(i, 1); continue; }
       if (!h.on && !pointerOn) continue;
-      v.cents = bendCents(vx - v.x0);
+      const vib = (h.vibE || 0) > .04
+        ? Math.sin(tnow * 6.2832 * 5.6) * 34 * h.vibE : 0;
+      v.cents = bendCents(vx - v.x0) + vib;
       const k = Math.pow(2, v.cents / 1200);
       if (v.bend){ try{ v.bend(k); }catch(e){} }
       else for (const pm of v.parts){
@@ -1058,11 +1065,14 @@ function pump(){
   requestAnimationFrame(pump);
 }
 
-function curlRatio(lm, tipI, pipI){
-  const w = lm[0];
-  const dt_ = Math.hypot(lm[tipI].x - w.x, lm[tipI].y - w.y);
-  const dp = Math.hypot(lm[pipI].x - w.x, lm[pipI].y - w.y);
-  return dp > 1e-6 ? dt_ / dp : 1.5;
+/* flexão medida DENTRO do próprio dedo: ponta e junta média em relação
+   à junta da base (MCP). Não depende do punho — que sai do quadro quando
+   a mão desce — nem da inclinação da mão. */
+function curlRatio(lm, tipI, pipI, mcpI){
+  const b = lm[mcpI !== undefined ? mcpI : 0];
+  const dt_ = Math.hypot(lm[tipI].x - b.x, lm[tipI].y - b.y);
+  const dp = Math.hypot(lm[pipI].x - b.x, lm[pipI].y - b.y);
+  return dp > 1e-6 ? dt_ / dp : 1.8;
 }
 /* gatilho RELATIVO: a referência é o seu próprio dedo esticado.
    `ref` acompanha o máximo recente da razão de flexão (e decai devagar),
@@ -1090,6 +1100,7 @@ function assignHand(lm, side, now){
   h.lm = lm; h.seen = now;
   if (!h.on){
     h.x = lm[8].x; h.y = lm[8].y; h.px = lm[9].x;
+    h.vslowX = lm[8].x; h.vslowY = lm[8].y; h.vibE = 0;
     for (const f of h.fingers){
       f.x = lm[f.tip].x; f.y = lm[f.tip].y;
       f.rx = f.x; f.ry = f.y;
@@ -1101,11 +1112,21 @@ function assignHand(lm, side, now){
   h.x += (lm[8].x - h.x) * .8;
   h.y += (lm[8].y - h.y) * .8;
   h.px += (lm[9].x - h.px) * .5;          // palma: referência do slider
+  /* vibrato: oscilação CURTA e RÁPIDA da ponta do dedo.
+     `vslow` persegue a mão devagar; o que sobra é o tremor. Deslocamento
+     grande é viagem (nenhum vibrato); pequeno e veloz vira profundidade. */
+  const tp = lm[8];
+  if (h.vslowX === undefined){ h.vslowX = tp.x; h.vslowY = tp.y; h.vibE = 0; }
+  h.vslowX += (tp.x - h.vslowX) * .11;
+  h.vslowY += (tp.y - h.vslowY) * .11;
+  const dev = Math.hypot(tp.x - h.vslowX, tp.y - h.vslowY);
+  const alvo = dev > .034 ? 0 : Math.max(0, Math.min(1, (dev - .003) / .010));
+  h.vibE += (alvo - h.vibE) * (alvo > h.vibE ? .30 : .12);
   h.glow = Math.min(1, h.glow + .2);
   for (let fi = 0; fi < h.fingers.length; fi++){
     const f = h.fingers[fi];
     const tip = lm[f.tip];
-    const ratio = curlRatio(lm, f.tip, f.pip);
+    const ratio = curlRatio(lm, f.tip, f.pip, f.mcp);
     f.x += (tip.x - f.x) * .82;                 // menos inércia = reage na hora
     f.y += (tip.y - f.y) * .82;
     f.rx = tip.x; f.ry = tip.y;                 // ponta crua: detecção instantânea
@@ -1169,7 +1190,7 @@ function expireHands(now){
   for (const side of ["L", "R"]){
     const h = hands[side];
     if (h.on && now - h.seen > 280){
-      h.on = false; h.aim = null; h.lm = null;
+      h.on = false; h.aim = null; h.lm = null; h.vibE = 0;
       for (const f of h.fingers){ f.aim = null; f.brow = null; f.col = null; }
     }
   }
@@ -1250,15 +1271,17 @@ function analyze(){
    esse pico de velocidade para baixo é o gesto de beliscar a corda mirada. */
 const PLUCK_V = 1.0;      // velocidade (tela/seg) que caracteriza a dobra
 function mkFingers(){
-  return [[8,6],[12,10],[16,14],[20,18]].map(fp => ({
-    tip: fp[0], pip: fp[1], x:.5, y:.5, curl:1.3, ext:false, cool:0,
+  return [[8,6,5],[12,10,9],[16,14,13],[20,18,17]].map(fp => ({
+    tip: fp[0], pip: fp[1], mcp: fp[2], x:.5, y:.5, curl:1.3, ext:false, cool:0,
     aim:null, brow:null, bcool:0, col:null, pt:0, ref:0, rx:.5, ry:.5 }));
 }
 const hands = {
   L: { on:false, x:.25, y:.9, px:undefined, vy:0, aim:null, armed:false, frames:0,
-       cool:0, glow:0, lm:null, seen:0, curl:1.3, ext:false, fingers: mkFingers() },
+       cool:0, glow:0, lm:null, seen:0, curl:1.3, ext:false, vibE:0,
+       vslowX:undefined, vslowY:undefined, fingers: mkFingers() },
   R: { on:false, x:.75, y:.9, px:undefined, vy:0, aim:null, armed:false, frames:0,
-       cool:0, glow:0, lm:null, seen:0, curl:1.3, ext:false, fingers: mkFingers() },
+       cool:0, glow:0, lm:null, seen:0, curl:1.3, ext:false, vibE:0,
+       vslowX:undefined, vslowY:undefined, fingers: mkFingers() },
 };
 function trackHands(mask, dt){
   for (const hand of ["L", "R"]){
@@ -1571,6 +1594,14 @@ function draw(){
   sctx.globalCompositeOperation = "source-over";
   sctx.globalAlpha = 1;
 
+  // vibrato faz a nota mirada cintilar
+  for (const side of ["L", "R"]){
+    const h = hands[side];
+    if (h.on && h.aim !== null && (h.vibE || 0) > .12){
+      const rw = cellRow(h.aim);
+      rowPulse[side][rw] = Math.max(rowPulse[side][rw], h.vibE * .4);
+    }
+  }
   // constelação: o mapa da mão desenhado em pontos e traços finos
   if (visionMode === "mp"){
     sctx.save();
