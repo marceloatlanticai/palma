@@ -17,6 +17,30 @@
     --rec:#ff4d5e;
     --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,"Roboto Mono",monospace;
   }
+  /* água: a interface inteira vira clara */
+  body.aqua{
+    --bg:#e9eff8;
+    --txt:#243043;
+    --dim:#6a7b95;
+    --osso:#16202f;
+    --panel:rgba(252,253,255,.86);
+    --line:rgba(60,85,125,.20);
+    --grave:#2f6ea8;
+    --agudo:#1d8fb0;
+  }
+  body.aqua #panel{box-shadow:0 6px 30px rgba(40,70,110,.13)}
+  body.aqua input[type=range]{background:rgba(60,85,125,.24)}
+  body.aqua input[type=range]::-webkit-slider-thumb{background:#2b3d57;
+    box-shadow:0 0 6px rgba(43,61,87,.4)}
+  body.aqua input[type=range]::-moz-range-thumb{background:#2b3d57}
+  body.aqua #orientChips{border-color:rgba(60,85,125,.3);
+    background:rgba(40,70,110,.05)}
+  body.aqua #orientChips .chip.sel{background:rgba(40,70,110,.13);
+    color:var(--osso);text-shadow:none}
+  body.aqua .chip.sel{background:rgba(40,70,110,.13);
+    border-color:rgba(40,70,110,.45);color:var(--osso)}
+  body.aqua button.active{background:rgba(40,70,110,.12);
+    border-color:rgba(40,70,110,.4)}
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
     font-family:var(--mono);-webkit-font-smoothing:antialiased;
@@ -200,7 +224,7 @@
     <ol>
       <li><i>1</i><span>Ligue a câmera e aguarde o <em>mapa da mão</em> carregar — o esqueleto dos seus dedos aparece desenhado em pontos de luz. Funciona com qualquer iluminação, mas no escuro a poeira fica mais bonita.</span></li>
       <li><i>2</i><span>As cordas são um <em>teclado enrolado</em>: cada corda tem duas notas (metade esquerda e direita), subindo como as teclas do piano — e cada nota veste <em>a cor do seu tom</em> (Dó vermelho, Mi verde, Lá violeta…), escura no grave, clara no agudo. <em>Roce a mão</em> pelas cordas e elas sussurram em arpejo; <em>dobre o dedo num estalo</em> e a nota soa forte na grade do beat. Deslize para curvar em semitons, ou <em>trema o dedo em movimentos curtos</em> para dar vibrato à nota. <em class="g">Esquerda: Lá2–Si4.</em> <em class="a">Direita: Lá4–Si6.</em></span></li>
-      <li><i>3</i><span>No painel, os botões de <em>Formato</em> giram o instrumento: <em>Teclas</em> é um piano cromático, <em>Cordas</em> deita as cordas, <em>Harpa</em> põe as cordas em pé. No teclado: a mão descansa na faixa central em silêncio, desce para a oitava grave, sobe para a aguda — brancas junto ao repouso, pretas na borda. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
+      <li><i>3</i><span>No painel, os botões de <em>Formato</em> giram o instrumento: <em>Teclas</em> é um piano cromático, <em>Cordas</em> deita as cordas, <em>Quintas</em> deita as cordas em Ré menor — toda nota é da escala, nada soa errado —, <em>Harpa</em> põe as cordas em pé e <em>Água</em> transforma tudo em bolhas com gás e <em>Mandala</em> desenha uma roda de 7 setores e 4 anéis ao redor do seu tronco — girar o braço sobe em terças, estender sobe uma oitava —, <em>Corpo</em> troca as mãos pelo esqueleto inteiro — dance e a música nasce: os pés fazem a batida, os braços a melodia e a cabeça o grave — e <em>Sampler</em> vira uma grade de 16 pads por mão — bateria à esquerda, notas à direita, com um fader de filtro embaixo de cada grade. No teclado: a mão descansa na faixa central em silêncio, desce para a oitava grave, sobe para a aguda — brancas junto ao repouso, pretas na borda. <em>Som</em> troca o timbre. Clique num estilo de bateria e o beat já começa — quando o groove assentar, aperte <em>Gravar</em>, toque uma linha de graves, feche a camada e borde os agudos por cima.</span></li>
     </ol>
     <button id="btnStart">Ligar a câmera</button>
     <div id="introErr"></div>
@@ -254,22 +278,336 @@ for (const side of ["L", "R"]){
     const hue = (midi % 12) * 30;                       // Dó = 0° = vermelho
     const l = side === "L" ? 26 + n * 1.1 : 55 + n * 1.4;
     const s = side === "L" ? 82 : 72;
+    // tinta para fundo claro: escura, dessaturada e puxada para o azul
+    const aH = hue + (hue > 60 && hue < 260 ? 22 : -18);
+    const aL = side === "L" ? 30 + n * .5 : 40 + n * .7;
     CELLS[side].push({
       name: NOMES7[n % 7], hue, s, l,
       css: "hsl(" + hue + "," + s + "%," + l + "%)",
       hot: "hsl(" + hue + "," + Math.min(100, s + 8) + "%," + Math.min(88, l + 18) + "%)",
+      aqua: "hsl(" + aH + ",42%," + aL + "%)",
+      aquaHot: "hsl(" + aH + ",70%," + Math.max(22, aL - 12) + "%)",
     });
   }
 }
+/* ---------- formato "q": Quintas em Ré menor ----------
+   As cordas sobem pelo CICLO DAS QUINTAS da tonalidade (lido em quartas,
+   que é o mesmo círculo ao contrário): Mi Lá Ré Sol Dó Fá Sib Ré. Cordas
+   vizinhas guardam uma quarta justa — o intervalo mais consonante depois
+   da oitava. Ao longo de cada corda, a segunda célula é a QUINTA acima
+   (ou a quarta, no único grau onde a quinta sairia da escala). Resultado:
+   nenhuma vizinhança forma segunda menor nem trítono, e nenhuma nota sai
+   de Ré menor — não existe nota errada. */
+const NOME12 = ["Dó","Dó#","Ré","Mib","Mi","Fá","Fá#","Sol","Sol#","Lá","Sib","Si"];
+const DM = [2, 4, 5, 7, 9, 10, 0];          // graus de Ré menor natural
+const inDm = m => DM.includes(((m % 12) + 12) % 12);
+const QCELLS = { L: [], R: [] };
+const QMIDI = { L: [], R: [] };
+function buildQuintas(){
+  for (const side of ["L", "R"]){
+    QCELLS[side] = []; QMIDI[side] = [];
+    const root = side === "L" ? 40 : 52;     // Mi2 · Mi3
+    for (let i = 0; i < ROWS; i++){
+      // corda i: sobe de quarta em quarta; a última fecha com uma terça
+      const base = root + (i < 7 ? i * 5 : 6 * 5 + 4);
+      for (let c = 0; c < 2; c++){
+        // célula 1 = quinta justa acima; onde ela sairia da escala, a quarta
+        const midi = c === 0 ? base : (inDm(base + 7) ? base + 7 : base + 5);
+        const hue = (((midi % 12) + 12) % 12) * 30;
+        const reg = (midi - 38) / 50;
+        const l = side === "L" ? 30 + reg * 30 : 52 + reg * 32;
+        const sa = side === "L" ? 80 : 72;
+        QMIDI[side].push(midi);
+        QCELLS[side].push({
+          name: NOME12[((midi % 12) + 12) % 12], hue, s: sa, l,
+          css: "hsl(" + hue + "," + sa + "%," + l + "%)",
+          hot: "hsl(" + hue + "," + Math.min(100, sa + 8) + "%," +
+               Math.min(88, l + 18) + "%)",
+        });
+      }
+    }
+  }
+}
+buildQuintas();
+const QUINTAS = () => S.orient === "q";
+/* tabela de células ativa no formato atual */
+function cellsOf(side){ return (QUINTAS() || CORPO()) ? QCELLS[side] : CELLS[side]; }
 function cellRGBA(side, cell, a){
-  const c = CELLS[side][cell];
+  const c = cellsOf(side)[cell];
   return "hsla(" + c.hue + "," + c.s + "%," + Math.min(82, c.l + 10) + "%," + a + ")";
 }
 /* ---------- geometria orientável ----------
    "h": cordas horizontais (altura = corda, x = célula/posição)
    "v": harpa — cordas verticais, graves à esq. subindo p/ agudos à dir.,
         célula de baixo = nota-âncora, de cima = grau vizinho */
-const VERT = () => S.orient !== "h";       // eixo vertical (harpa e teclas)
+const VERT = () => !["h", "q", "a", "s", "b"].includes(S.orient);   // eixo vertical
+const AQUA = () => S.orient === "a";      // cordas de bolhas em água clara
+const SAMPLER = () => S.orient === "s";   // grade 4x4 de pads + fader
+const CORPO = () => S.orient === "b" || S.orient === "m";  // rastreio de corpo
+const MANDALA = () => S.orient === "m";   // roda de setores e anéis ao redor de você
+
+/* ---------- Mandala: o Tonnetz ao redor do corpo ----------
+   7 setores de 360/7 = 51,43° (os 7 graus da escala) e 4 anéis.
+   Girar um setor sobe uma TERÇA · avançar um anel sobe uma OITAVA.
+   (O eixo de quintas diatônicas foi descartado porque cria um trítono
+   inevitável, Si♭–Mi; a terça é o único intervalo diatônico que nunca
+   produz um. Assim qualquer varredura de braço vira arpejo, estender o
+   braço muda de registro, e tudo permanece em Ré menor.) */
+const SET = 7, ANEIS = 4;
+const ANG = Math.PI * 2 / SET;
+const R0 = .062, RW = .076;
+const DMIN = [0, 2, 3, 5, 7, 8, 10];       // Ré menor natural, a partir do Ré
+const NOMEDM = ["Ré","Mi","Fá","Sol","Lá","Sib","Dó"];
+const centro = { x:.5, y:.5, ok:false };
+function radMidi(passo, base){
+  const o = Math.floor(passo / 7), d = ((passo % 7) + 7) % 7;
+  return base + 12 * o + DMIN[d];
+}
+/* passo diatônico: setor = terça dentro da oitava · anel = oitava */
+const passoDe = (setor, anel) => ((setor * 2) % 7) + anel * 7;
+const MCELLS = [];
+function buildMandala(){
+  MCELLS.length = 0;
+  for (let a = 0; a < ANEIS; a++){
+    for (let k = 0; k < SET; k++){
+      const passo = passoDe(k, a);
+      const midi = radMidi(passo, 38);
+      const hue = (((midi % 12) + 12) % 12) * 30;
+      const l = 34 + a * 9 + (k % 7) * 1.4;
+      MCELLS.push({
+        i: a * SET + k, setor: k, anel: a, passo, midi,
+        nome: NOMEDM[((passo % 7) + 7) % 7], hue, s: 74, l,
+        css: "hsl(" + hue + ",74%," + l + "%)",
+        hot: "hsl(" + hue + ",92%," + Math.min(88, l + 26) + "%)",
+        a0: k * ANG - Math.PI / 2 - ANG / 2, a1: (k + 1) * ANG - Math.PI / 2 - ANG / 2,
+        r0: R0 + a * RW, r1: R0 + (a + 1) * RW,
+      });
+    }
+  }
+}
+buildMandala();
+/* converte tela -> polar em torno do centro do corpo (com correção de proporção) */
+function polarDe(x, y){
+  const ar = innerWidth && innerHeight ? innerWidth / innerHeight : 1.6;
+  const dx = (x - centro.x) * ar, dy = y - centro.y;
+  let ang = Math.atan2(dy, dx) + Math.PI / 2 + ANG / 2;
+  ang = ((ang % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  return { ang, rad: Math.hypot(dx, dy), setor: Math.floor(ang / ANG) % SET };
+}
+function polarPara(ang, rad){
+  const ar = innerWidth && innerHeight ? innerWidth / innerHeight : 1.6;
+  const a = ang - Math.PI / 2 - ANG / 2;
+  return { x: centro.x + Math.cos(a) * rad / ar, y: centro.y + Math.sin(a) * rad };
+}
+function anelDe(rad){
+  if (rad < R0) return -1;
+  const a = Math.floor((rad - R0) / RW);
+  return a >= 0 && a < ANEIS ? a : -1;
+}
+/* percussão por setor: chutar em direções diferentes muda a peça */
+const KIT_SET = [0, 2, 6, 4, 8, 13, 12];
+
+/* ---------- Corpo: quem toca o quê ----------
+   Pés fazem a batida, braços fazem a melodia, cabeça faz o grave.
+   Sem gesto de beliscão (o corpo é grosso demais para isso): a nota
+   nasce ao ATRAVESSAR uma corda, e a velocidade da travessia é o volume. */
+const EFET = [
+  { i:16, nome:"punho dir", papel:"mel",  peso:1.00 },
+  { i:15, nome:"punho esq", papel:"mel",  peso:1.00 },
+  { i:14, nome:"cotov dir", papel:"mel",  peso:.45 },
+  { i:13, nome:"cotov esq", papel:"mel",  peso:.45 },
+  { i:28, nome:"pé dir",    papel:"perc", peso:1.00, kit:2 },   // caixa
+  { i:27, nome:"pé esq",    papel:"perc", peso:1.00, kit:0 },   // bumbo
+  { i:26, nome:"joelho dir",papel:"perc", peso:.55, kit:6 },    // chimbal
+  { i:25, nome:"joelho esq",papel:"perc", peso:.55, kit:6 },
+  { i: 0, nome:"cabeça",    papel:"bass", peso:.85 },
+];
+const OSSOS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],
+  [23,25],[25,27],[24,26],[26,28],[27,31],[28,32],[0,11],[0,12]];
+const corpo = { on:false, lm:null, seen:0, glow:0 };
+for (const e of EFET){ e.x = .5; e.y = .5; e.ax = .5; e.py = null; e.cool = 0;
+  e.vis = 0; e.pset = null; e.panel = null; }
+
+function onPoseResults(results){
+  const lm = results && results.poseLandmarks;
+  const now = performance.now();
+  lastResultAt = now;
+  if (!lm || !lm.length){
+    if (now - corpo.seen > 420){ corpo.on = false; corpo.lm = null; }
+    return;
+  }
+  corpo.lm = lm; corpo.seen = now;
+  const novo = !corpo.on;
+  // centro da mandala: o tronco, com muita suavização (o instrumento
+  // acompanha você pela sala em vez de ficar preso à tela)
+  const t = [11, 12, 23, 24].map(i => lm[i]).filter(Boolean);
+  if (t.length === 4){
+    const cx = (t[0].x + t[1].x + t[2].x + t[3].x) / 4;
+    const cy = (t[0].y + t[1].y + t[2].y + t[3].y) / 4;
+    if (!centro.ok){ centro.x = cx; centro.y = cy; centro.ok = true; }
+    centro.x += (cx - centro.x) * .05;
+    centro.y += (cy - centro.y) * .05;
+  }
+  corpo.on = true; corpo.glow = Math.min(1, corpo.glow + .2);
+  if (!CORPO()) return;
+  for (const e of EFET){
+    const p = lm[e.i];
+    if (!p){ e.vis = 0; continue; }
+    e.vis = p.visibility === undefined ? 1 : p.visibility;
+    const nx = p.x, ny = p.y;
+    if (novo || e.py === null){ e.x = nx; e.y = ny; e.py = ny; continue; }
+    const ant = e.y;
+    e.x += (nx - e.x) * .7;
+    e.y += (ny - e.y) * .7;
+    if (e.vis < .45) { e.py = e.y; e.pset = null; continue; }
+    if (MANDALA()){
+      const q = polarDe(e.x, e.y);
+      const anel = anelDe(q.rad);
+      const dr = Math.hypot(e.x - e.ax, e.y - ant);
+      if (anel < 0){ e.pset = null; e.panel = null; e.py = e.y; e.ax = e.x; continue; }
+      const trocouSetor = e.pset !== null && e.pset !== q.setor;
+      const trocouAnel = e.panel !== null && e.panel !== anel;
+      if ((trocouSetor || trocouAnel) && now - e.cool >= 130){
+        e.cool = now;
+        const vel = Math.min(1, dr * 26);
+        const forca = Math.max(.28, Math.min(1, .35 + vel * .8)) * e.peso;
+        dispararMandala(e, q.setor, anel, forca);
+      }
+      e.pset = q.setor; e.panel = anel; e.py = e.y; e.ax = e.x;
+      continue;
+    }
+    // travessia: a corda que ficou entre a posição anterior e a atual
+    for (let r = 0; r < ROWS; r++){
+      const ry = rowY(r);
+      if ((ant - ry) * (e.y - ry) >= 0) continue;          // não cruzou
+      if (now - e.cool < 130) break;
+      e.cool = now;
+      const vel = Math.min(1, Math.abs(e.y - ant) * 26);
+      const forca = Math.max(.28, Math.min(1, .35 + vel * .8)) * e.peso;
+      dispararCorpo(e, r, forca);
+      break;
+    }
+    e.py = e.y; e.ax = e.x;
+  }
+}
+function dispararCorpo(e, row, forca){
+  initAudio();
+  const cell = row * 2 + (e.x < .5 ? 0 : 1);
+  if (e.papel === "perc"){
+    playKit(e.kit, AC.currentTime, forca);
+    rowPulse.L[row] = Math.max(rowPulse.L[row], forca);
+    plucks.push({ hand:"L", row, x: e.x, t0: performance.now(),
+      dur: .8, amp: forca });
+    waves.push({ hand:"L", row, x: e.x, t0: performance.now() });
+    return;
+  }
+  const lado = e.papel === "bass" ? "L" : "R";
+  if (forca > .7) triggerNote(lado, cell, e.x);
+  else triggerBrush(lado, cell, e.x);
+}
+function dispararMandala(e, setor, anel, forca){
+  initAudio();
+  const cel = MCELLS[anel * SET + setor];
+  if (!cel) return;
+  mPulse[cel.i] = Math.max(mPulse[cel.i] || 0, forca);
+  mWaves.push({ cel: cel.i, t0: performance.now(), forca });
+  if (e.papel === "perc"){
+    playKit(KIT_SET[setor], AC.currentTime, forca);
+    return;
+  }
+  const base = e.papel === "bass" ? 26 : 38;
+  const freq = HZ(radMidi(cel.passo, base));
+  const t = AC.currentTime;
+  if (e.papel === "bass") playBass(freq, t, Math.min(1, forca + .15));
+  else playPluck(freq, t, forca);
+  if (S.recording && S.playing && S.recLayer){
+    const off = (t - S.loopStart + loopDur()) % loopDur();
+    const step = Math.round(off / stepDur()) % STEPS;
+    const key = "m" + cel.i + e.papel;
+    if (!S.recLayer.steps.some(x => x.step === step && x.key === key)){
+      S.recLayer.steps.push({ step, key, mcel: cel.i, papel: e.papel, m: "m" });
+      if (e.papel === "bass") S.recLayer.warm++; else S.recLayer.cool++;
+    }
+  }
+}
+const mPulse = new Array(SET * ANEIS).fill(0);
+const mWaves = [];
+function expireCorpo(now){
+  if (corpo.on && now - corpo.seen > 420){ corpo.on = false; corpo.lm = null; }
+  if (!corpo.on) corpo.glow *= .92;
+}
+
+/* ---------- Sampler: 16 pads por mão, ordem MPC (pad 1 embaixo à esq.)
+   Esquerda = kit de percussão · Direita = 16 notas subindo.
+   Abaixo dos pads, um fader que varre o filtro daquele lado. */
+const PADS = { L: [], R: [] };
+const FADER = { L: null, R: null };
+/* base útil da tela: tudo precisa caber ACIMA do painel de controles,
+   que muda de altura conforme a largura da janela */
+function usableBottom(){
+  let ph = 0;
+  try{
+    const el = document.getElementById("panel");
+    if (el && el.offsetHeight && innerHeight)
+      ph = (el.offsetHeight + 20) / innerHeight;
+  }catch(e){}
+  if (!ph || !isFinite(ph) || ph > .78) ph = .22;   // só rejeita medida absurda
+  return Math.max(.30, Math.min(.90, 1 - ph - .015));
+}
+function buildPads(){
+  const base = usableBottom();
+  const fh = Math.max(.030, Math.min(.075, base * .10));   // altura do fader
+  const fY1 = base, fY0 = base - fh;
+  for (const side of ["L", "R"]){
+    const arr = []; PADS[side] = arr;
+    const x0 = side === "L" ? .035 : .535, wAll = .43;
+    const yTop = .055, gap = .011;
+    const hAll = Math.max(.14, fY0 - .038 - yTop);   // pads até logo acima do fader
+    const pw = (wAll - gap * 3) / 4, ph = (hAll - gap * 3) / 4;
+    for (let r = 0; r < 4; r++){
+      for (let c = 0; c < 4; c++){
+        const i = (3 - r) * 4 + c;             // MPC: começa embaixo
+        const px0 = x0 + c * (pw + gap), py0 = yTop + r * (ph + gap);
+        const hue = side === "L" ? KIT[i].h : (stepMidi(69, i) % 12) * 30;
+        const l = side === "L" ? 44 : 40 + i * 1.9;
+        const sa = side === "L" ? 58 : 74;
+        arr[i] = {
+          i, side, hue, s: sa, l,
+          name: side === "L" ? KIT[i].n : NOMES7[i % 7],
+          x0: px0, x1: px0 + pw, y0: py0, y1: py0 + ph,
+          cx: px0 + pw / 2, cy: py0 + ph / 2,
+          css: "hsl(" + hue + "," + sa + "%," + l + "%)",
+          hot: "hsl(" + hue + "," + Math.min(100, sa + 22) + "%," +
+               Math.min(86, l + 26) + "%)",
+        };
+      }
+    }
+    const anterior = FADER[side];
+    FADER[side] = { x0, x1: x0 + wAll, y0: fY0, y1: fY1,
+      cy: (fY0 + fY1) / 2, val: anterior ? anterior.val : 1,
+      live: anterior ? anterior.live : 0 };
+  }
+}
+function padAt(side, x, y){
+  for (const p of PADS[side])
+    if (x >= p.x0 - .004 && x <= p.x1 + .004 &&
+        y >= p.y0 - .006 && y <= p.y1 + .006) return p.i;
+  return -1;
+}
+function faderAt(side, x, y){
+  const f = FADER[side];
+  return x >= f.x0 - .02 && x <= f.x1 + .02 && y >= f.y0 - .03 && y <= f.y1 + .03;
+}
+/* posição da mão no fader vira corte do filtro daquele lado */
+function moveFader(side, x){
+  const f = FADER[side];
+  const u = Math.max(0, Math.min(1, (x - f.x0) / (f.x1 - f.x0)));
+  f.val = u; f.live = 1;
+  if (!AC) return;
+  const hz = 180 * Math.pow(20000 / 180, u);          // curva logarítmica
+  const alvo = side === "L" ? drumFilt : melFilt;
+  if (alvo) alvo.frequency.setTargetAtTime(hz, AC.currentTime, .02);
+}
 const PIANO = () => S.orient === "p" || S.orient === "g";
 const GLYPH = () => S.orient === "g";      // teclado escrito com letras
 
@@ -358,14 +696,23 @@ function strPos(side, i){           // coordenada fixa da corda/tecla i
 }
 /* qual corda/tecla um índice de célula habita (p/ física e pulsos) */
 function cellRow(cell){
-  return PIANO() ? cell : (cell >> 1);
+  return (PIANO() || SAMPLER()) ? cell : (cell >> 1);
 }
 /* frequência de uma célula, respeitando o layout em que foi tocada */
 function cellFreq(side, cell, mode){
   const m = mode || S.orient;
-  if (m === "p"){
+  if (m === "p" || m === "g"){
     const k = KEYS[side][cell];
     return k ? HZ(k.midi) : HZ(60);
+  }
+  if (m === "q"){
+    const mi = QMIDI[side][cell];
+    return mi !== undefined ? HZ(mi) : HZ(60);
+  }
+  if (m === "s") return side === "L" ? 0 : HZ(stepMidi(57, cell));
+  if (m === "b"){
+    const mi = QMIDI[side][cell];
+    return mi !== undefined ? HZ(mi) : HZ(60);
   }
   return side === "L" ? freqL(cell) : freqR(cell);
 }
@@ -393,7 +740,7 @@ function cellCol(side, x, y, prev){
 }
 
 /* ---------- áudio ---------- */
-let AC = null, master, comp, drumBus, metroBus, delaySend;
+let AC = null, master, comp, drumBus, metroBus, delaySend, melBus, melFilt, drumFilt;
 function initAudio(){
   if (AC) return;
   AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -403,7 +750,15 @@ function initAudio(){
   drumBus = AC.createGain(); drumBus.gain.value = .75;
   metroBus = AC.createGain(); metroBus.gain.value = .5;
   master.connect(comp); comp.connect(AC.destination);
-  drumBus.connect(master); metroBus.connect(master);
+  // barramentos com filtro: os faders do Sampler varrem cada um
+  melFilt = AC.createBiquadFilter(); melFilt.type = "lowpass";
+  melFilt.frequency.value = 20000; melFilt.Q.value = .9;
+  melBus = AC.createGain(); melBus.gain.value = 1;
+  melBus.connect(melFilt); melFilt.connect(master);
+  drumFilt = AC.createBiquadFilter(); drumFilt.type = "lowpass";
+  drumFilt.frequency.value = 20000; drumFilt.Q.value = .9;
+  drumBus.connect(drumFilt); drumFilt.connect(master);
+  metroBus.connect(master);
   // sala: delay global do blueprint (320ms, feedback .28, wet .3)
   const dl = AC.createDelay(1); dl.delayTime.value = .32;
   const fb = AC.createGain(); fb.gain.value = .28;
@@ -429,7 +784,7 @@ function bassPoeira(freq, t, vel){
   const g3 = AC.createGain(); g3.gain.value = .22;
   o1.connect(g); o2.connect(f); f.connect(g);
   o3.connect(g3); g3.connect(g);
-  g.connect(master); g.connect(delaySend);
+  g.connect(melBus); g.connect(delaySend);
   o1.start(t); o2.start(t); o3.start(t);
   o1.stop(t + dur + .15); o2.stop(t + dur + .15); o3.stop(t + dur + .15);
   return { parts: [[o1, 1], [o2, 1], [o3, 2]], f: freq, until: t + dur + .1, cents: 0 };
@@ -445,7 +800,7 @@ function pluckPoeira(freq, t, vel){
   g.gain.exponentialRampToValueAtTime(.001, t + dur);
   const lp = AC.createBiquadFilter(); lp.type = "lowpass";
   lp.frequency.value = soft ? 4200 : 6200;
-  g.connect(lp); lp.connect(master); lp.connect(delaySend);
+  g.connect(lp); lp.connect(melBus); lp.connect(delaySend);
   const parts = [[1, .6], [2.001, .22], [2.997, .085], [1.004, .28]];
   const voice = { parts: [], f: freq, until: t + dur - .05, cents: 0 };
   for (const pa of parts){
@@ -460,7 +815,7 @@ function pluckPoeira(freq, t, vel){
     const sg = AC.createGain();
     sg.gain.setValueAtTime(.07, t);
     sg.gain.exponentialRampToValueAtTime(.0001, t + .09);
-    sp.connect(sg); sg.connect(master);
+    sp.connect(sg); sg.connect(melBus);
     sp.start(t); sp.stop(t + .11);
   }
   return voice;
@@ -489,7 +844,7 @@ function pluckGuitar(freq, t, vel){
   lp.frequency.setValueAtTime(soft ? 2400 : 4600, t);
   lp.frequency.exponentialRampToValueAtTime(soft ? 700 : 900, t + dur * .8);
   lp.Q.value = .8;
-  g.connect(lp); lp.connect(master); lp.connect(delaySend);
+  g.connect(lp); lp.connect(melBus); lp.connect(delaySend);
   const parts = [[1, .5, "triangle"], [1.003, .3, "triangle"],
                  [.997, .22, "sawtooth"], [2.001, .12, "sine"]];
   const voice = { parts: [], f: freq, until: t + dur - .05, cents: 0 };
@@ -506,7 +861,7 @@ function pluckGuitar(freq, t, vel){
     const ng = AC.createGain();
     ng.gain.setValueAtTime(.12 * v, t);
     ng.gain.exponentialRampToValueAtTime(.001, t + .015);
-    nb.connect(nf); nf.connect(ng); ng.connect(master);
+    nb.connect(nf); nf.connect(ng); ng.connect(melBus);
     nb.start(t); nb.stop(t + .02);
   }
   return voice;
@@ -530,13 +885,13 @@ function bassUpright(freq, t, vel){
   const g3 = AC.createGain(); g3.gain.value = .35;
   o1.connect(g); o2.connect(g);
   o3.connect(g3); g3.connect(lp); lp.connect(g);
-  g.connect(body); body.connect(master); g.connect(delaySend);
+  g.connect(body); body.connect(melBus); g.connect(delaySend);
   const nb = AC.createBufferSource(); nb.buffer = noiseBuf();
   const nf = AC.createBiquadFilter(); nf.type = "lowpass"; nf.frequency.value = 300;
   const ng = AC.createGain();
   ng.gain.setValueAtTime(.35 * v, t);
   ng.gain.exponentialRampToValueAtTime(.001, t + .05);
-  nb.connect(nf); nf.connect(ng); ng.connect(master);
+  nb.connect(nf); nf.connect(ng); ng.connect(melBus);
   o1.start(t); o2.start(t); o3.start(t); nb.start(t);
   o1.stop(t + dur + .1); o2.stop(t + dur + .1); o3.stop(t + dur + .1);
   nb.stop(t + .06);
@@ -553,7 +908,7 @@ function pianoVoice(freq, t, vel, side){
   g.gain.exponentialRampToValueAtTime(.001, t + dur);
   const lp = AC.createBiquadFilter(); lp.type = "lowpass";
   lp.frequency.value = soft ? 2800 : (side === "L" ? 3400 : 5400);
-  g.connect(lp); lp.connect(master); lp.connect(delaySend);
+  g.connect(lp); lp.connect(melBus); lp.connect(delaySend);
   const parts = [[1, .55], [2.004, .26], [3.01, .11], [4.02, .05]];
   const voice = { parts: [], f: freq, until: t + dur - .05, cents: 0 };
   for (const pa of parts){
@@ -570,7 +925,7 @@ function pianoVoice(freq, t, vel, side){
     const ng = AC.createGain();
     ng.gain.setValueAtTime(.18 * v, t);
     ng.gain.exponentialRampToValueAtTime(.001, t + .02);
-    nb.connect(nf); nf.connect(ng); ng.connect(master);
+    nb.connect(nf); nf.connect(ng); ng.connect(melBus);
     nb.start(t); nb.stop(t + .03);
   }
   return voice;
@@ -591,7 +946,7 @@ function pluckFuzz(freq, t, vel){
   g.gain.linearRampToValueAtTime(.34 * v, t + .008);
   g.gain.exponentialRampToValueAtTime(.001, t + dur);
   o1.connect(pre); o2.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g);
-  g.connect(master); g.connect(delaySend);
+  g.connect(melBus); g.connect(delaySend);
   o1.start(t); o2.start(t); o1.stop(t + dur + .1); o2.stop(t + dur + .1);
   return { parts: [[o1, 1], [o2, 1.005]], f: freq, until: t + dur - .03, cents: 0 };
 }
@@ -611,19 +966,58 @@ function bassFuzz(freq, t, vel){
   const sg = AC.createGain(); sg.gain.value = .5;
   o1.connect(pre); o2.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g);
   sub.connect(sg); sg.connect(g);
-  g.connect(master); g.connect(delaySend);
+  g.connect(melBus); g.connect(delaySend);
   sub.start(t); o1.start(t); o2.start(t);
   sub.stop(t + dur + .1); o1.stop(t + dur + .1); o2.stop(t + dur + .1);
   return { parts: [[sub, 1], [o1, 1], [o2, 1]], f: freq, until: t + dur - .03, cents: 0 };
 }
+/* gota d'água: senoide com salto de altura no ataque — o "plic" da bolha
+   estourando — mais um respingo curto de ruído filtrado */
+function dropVoice(freq, t, vel, side){
+  const v = vel || 1, soft = v < 1;
+  const dur = (side === "L" ? 1.05 : .8) * (soft ? .55 : 1);
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.55 * v, t + .006);
+  g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  const bp = AC.createBiquadFilter(); bp.type = "lowpass";
+  bp.frequency.value = soft ? 3200 : 6000; bp.Q.value = .6;
+  g.connect(bp); bp.connect(melBus); bp.connect(delaySend);
+  const o = AC.createOscillator(); o.type = "sine";
+  o.frequency.setValueAtTime(freq * 2.6, t);          // o salto da gota
+  o.frequency.exponentialRampToValueAtTime(freq, t + .055);
+  const og = AC.createGain(); og.gain.value = .8;
+  o.connect(og); og.connect(g);
+  const o2 = AC.createOscillator(); o2.type = "sine";
+  o2.frequency.value = freq * 2.004;                   // anel cristalino
+  const o2g = AC.createGain();
+  o2g.gain.setValueAtTime(.2 * v, t);
+  o2g.gain.exponentialRampToValueAtTime(.0005, t + dur * .5);
+  o2.connect(o2g); o2g.connect(bp);
+  o.start(t); o2.start(t);
+  o.stop(t + dur + .1); o2.stop(t + dur + .1);
+  if (!soft){                                          // respingo
+    const nb = AC.createBufferSource(); nb.buffer = noiseBuf();
+    const nf = AC.createBiquadFilter(); nf.type = "bandpass";
+    nf.frequency.value = Math.min(6000, freq * 5); nf.Q.value = 1.4;
+    const ng = AC.createGain();
+    ng.gain.setValueAtTime(.1 * v, t);
+    ng.gain.exponentialRampToValueAtTime(.0005, t + .035);
+    nb.connect(nf); nf.connect(ng); ng.connect(melBus);
+    nb.start(t); nb.stop(t + .05);
+  }
+  return { parts: [[o, 1], [o2, 2.004]], f: freq, until: t + dur - .05, cents: 0 };
+}
 /* despachantes: o resto do instrumento nao sabe qual timbre esta ativo */
 function playBass(freq, t, vel){
+  if (S.timbre === "gota") return dropVoice(freq, t, vel, "L");
   if (S.timbre === "cordas") return bassUpright(freq, t, vel);
   if (S.timbre === "piano") return pianoVoice(freq, t, vel, "L");
   if (S.timbre === "fuzz") return bassFuzz(freq, t, vel);
   return bassPoeira(freq, t, vel);
 }
 function playPluck(freq, t, vel){
+  if (S.timbre === "gota") return dropVoice(freq, t, vel, "R");
   if (S.timbre === "cordas") return pluckGuitar(freq, t, vel);
   if (S.timbre === "piano") return pianoVoice(freq, t, vel, "R");
   if (S.timbre === "fuzz") return pluckFuzz(freq, t, vel);
@@ -676,6 +1070,62 @@ function playClick(t, accent){
   o.connect(g); g.connect(metroBus); o.start(t); o.stop(t + .05);
 }
 
+/* ---------- kit do Sampler: 16 peças na mão esquerda ----------
+   Ordem MPC: pad 1 no canto inferior esquerdo, subindo por linhas. */
+const KIT = [
+  { n:"Kick",  h:  8 }, { n:"Kick2", h: 20 }, { n:"Snare", h:355 }, { n:"Rim",   h:340 },
+  { n:"Clap",  h:305 }, { n:"Snap",  h:290 }, { n:"HatCl", h:190 }, { n:"HatOp", h:172 },
+  { n:"TomLo", h: 32 }, { n:"TomMd", h: 45 }, { n:"TomHi", h: 58 }, { n:"Cowb",  h: 75 },
+  { n:"Shkr",  h:150 }, { n:"Conga", h: 96 }, { n:"Clave", h:120 }, { n:"Cymb",  h:210 },
+];
+function noiseHit(t, v, tipo, freq, q, dur, bus){
+  const n = AC.createBufferSource(); n.buffer = noiseBuf();
+  const f = AC.createBiquadFilter(); f.type = tipo;
+  f.frequency.value = freq; if (q) f.Q.value = q;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(v, t);
+  g.gain.exponentialRampToValueAtTime(.0008, t + dur);
+  n.connect(f); f.connect(g); g.connect(bus || drumBus);
+  n.start(t); n.stop(t + dur + .02);
+  return g;
+}
+function toneHit(t, v, f0, f1, dur, tipo){
+  const o = AC.createOscillator(); o.type = tipo || "sine";
+  o.frequency.setValueAtTime(f0, t);
+  if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur * .5);
+  const g = AC.createGain();
+  g.gain.setValueAtTime(v, t);
+  g.gain.exponentialRampToValueAtTime(.0008, t + dur);
+  o.connect(g); g.connect(drumBus);
+  o.start(t); o.stop(t + dur + .02);
+  return g;
+}
+function playKit(i, t, vel){
+  const v = (vel === undefined ? 1 : vel);
+  switch (i){
+    case 0: playKick(t, v); break;
+    case 1: toneHit(t, .9*v, 190, 48, .22); noiseHit(t, .12*v, "lowpass", 220, 0, .04); break;
+    case 2: playSnare(t, v); break;
+    case 3: toneHit(t, .5*v, 420, 300, .06, "triangle");
+            noiseHit(t, .35*v, "bandpass", 2600, 3, .05); break;
+    case 4: { const g = noiseHit(t, .5*v, "bandpass", 1500, 1.2, .14);
+              noiseHit(t + .012, .3*v, "bandpass", 1900, 1.2, .10); break; }
+    case 5: noiseHit(t, .42*v, "bandpass", 2400, 2.4, .07); break;
+    case 6: playHat(t, v, false); break;
+    case 7: playHat(t, v, true); break;
+    case 8: toneHit(t, .75*v, 120, 78, .34); break;
+    case 9: toneHit(t, .72*v, 175, 112, .30); break;
+    case 10: toneHit(t, .70*v, 240, 155, .26); break;
+    case 11: toneHit(t, .32*v, 560, 0, .12, "square");
+             toneHit(t, .26*v, 840, 0, .11, "square"); break;
+    case 12: noiseHit(t, .30*v, "highpass", 5200, 0, .07); break;
+    case 13: toneHit(t, .55*v, 300, 210, .20, "sine");
+             noiseHit(t, .14*v, "bandpass", 900, 2, .06); break;
+    case 14: toneHit(t, .45*v, 1180, 0, .07, "sine"); break;
+    case 15: noiseHit(t, .30*v, "highpass", 6200, 0, .9); break;
+  }
+}
+buildPads();          // depende de KIT e da escala
 /* ---------- estilos de bateria ---------- */
 function pat(k, s, h, ho){ return { k:new Set(k), s:new Set(s), h:new Set(h), ho:new Set(ho||[]) }; }
 const DRUMS = {
@@ -691,7 +1141,12 @@ const DRUMS = {
 function playNote(hand, cell, when, mode){
   if (!AC) return null;
   const t = when || AC.currentTime;
-  const f = cellFreq(hand, cell, mode);
+  const m = mode || S.orient;
+  if (m === "s" && hand === "L"){            // pads de percussão
+    playKit(cell, t, 1);
+    return { parts: [], f: 0, until: t + .1, cents: 0, perc: true };
+  }
+  const f = cellFreq(hand, cell, m);
   return hand === "L" ? playBass(f, t) : playPluck(f, t);
 }
 /* ---------- slider de semitons ----------
@@ -731,9 +1186,12 @@ function triggerBrush(hand, cell, x){
   initAudio();
   const t = AC.currentTime;
   const row = cellRow(cell);
-  const f = cellFreq(hand, cell);
-  if (hand === "L") playBass(f, t, .28);
-  else playPluck(f, t, .3);
+  if (SAMPLER() && hand === "L"){ playKit(cell, t, .45); }
+  else {
+    const f = cellFreq(hand, cell);
+    if (hand === "L") playBass(f, t, .28);
+    else playPluck(f, t, .3);
+  }
   plucks.push({ hand, row, x, t0: performance.now(),
     dur: hand === "L" ? .5 : .85, amp: .4 });
   rowPulse[hand][row] = Math.max(rowPulse[hand][row], .35);
@@ -775,7 +1233,7 @@ function triggerNote(hand, cell, tipX){
     }
   }
 }
-const rowPulse = { L: new Array(24).fill(0), R: new Array(24).fill(0) };
+const rowPulse = { L: new Array(48).fill(0), R: new Array(48).fill(0) };
 const waves = [];
 const plucks = [];   // excitações físicas: vibração (R) e clareira (L)
 
@@ -828,6 +1286,21 @@ function scheduleStep(step, t){
     if (ly.muted || ly === S.recLayer) continue;
     for (const e of ly.steps){
       if (e.step !== step) continue;
+      if (e.m === "m"){                       // camada gravada na Mandala
+        const cel = MCELLS[e.mcel];
+        if (!cel) continue;
+        const base = e.papel === "bass" ? 26 : 38;
+        const f = HZ(radMidi(cel.passo, base));
+        if (e.papel === "perc") playKit(KIT_SET[cel.setor], t, .8);
+        else if (e.papel === "bass") playBass(f, t, .9);
+        else playPluck(f, t, .85);
+        const dtm = Math.max(0, (t - AC.currentTime) * 1000);
+        setTimeout(() => {
+          mPulse[cel.i] = Math.max(mPulse[cel.i], .8);
+          mWaves.push({ cel: cel.i, t0: performance.now(), forca: .8 });
+        }, dtm);
+        continue;
+      }
       const hand = e.hand || e.key[0];
       const cell = e.cell !== undefined ? e.cell : +e.key.slice(1);
       const row = (e.m || S.orient) === "p" ? cell : (cell >> 1);
@@ -914,6 +1387,9 @@ let AW = 208, AH = 117;
 const DOTS = [];
 const N_DOTS = 4200;
 const GFONT = [5.1, 6.6, 8.4];     // três corpos de letra (modo glifos)
+/* água em repouso: sem cor, apenas um tom abaixo do fundo */
+const AQUA_REST = "hsl(214,26%,68%)";      // bolhas das cordas
+const AQUA_REST_AMB = "hsl(214,18%,77%)";  // bolhas soltas na água
 function densityAt(x, y){
   let d = .045;                                     // poeira ambiente
   if (!VERT()){
@@ -986,11 +1462,86 @@ function buildPianoDots(){
   DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 :
                       (a.fb || 0) - (b.fb || 0));
 }
+function buildSamplerDots(){
+  DOTS.length = 0;
+  for (const side of ["L", "R"]){
+    for (const p of PADS[side]){
+      const w = p.x1 - p.x0, h = p.y1 - p.y0;
+      const n = 150;
+      const mx = w * .10, my = h * .12;
+      for (let i = 0; i < n; i++){
+        const x = p.x0 + mx + Math.random() * (w - 2 * mx);
+        const y = p.y0 + my + Math.random() * (h - 2 * my);
+        DOTS.push(mkDot(x, y, p.i, side, p.css, p.hot));
+      }
+      // moldura: pontos densos na borda desenham o contorno do pad
+      const per = 96;
+      for (let i = 0; i < per; i++){
+        const u = i / per, j = Math.random();
+        let x, y;
+        if (u < .25){ x = p.x0 + (u / .25) * w; y = p.y0; }
+        else if (u < .5){ x = p.x1; y = p.y0 + ((u - .25) / .25) * h; }
+        else if (u < .75){ x = p.x1 - ((u - .5) / .25) * w; y = p.y1; }
+        else { x = p.x0; y = p.y1 - ((u - .75) / .25) * h; }
+        const d = mkDot(x + (j - .5) * .004, y + (j - .5) * .004,
+          p.i, side, p.css, p.hot);
+        d.r *= .8; d.a = Math.min(.95, d.a * 1.5); d.edge = true;
+        DOTS.push(d);
+      }
+    }
+    // trilho do fader
+    const f = FADER[side];
+    for (let i = 0; i < 340; i++){
+      const x = f.x0 + Math.random() * (f.x1 - f.x0);
+      const y = f.cy + (Math.random() - .5) * (f.y1 - f.y0) * .55;
+      const d = mkDot(x, y, -1, side, "hsl(215,16%,46%)", "hsl(200,80%,66%)");
+      d.fader = true; d.a *= .8;
+      DOTS.push(d);
+    }
+  }
+  DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 : 0);
+}
+function buildMandalaDots(){
+  DOTS.length = 0;
+  for (const c of MCELLS){
+    const area = (c.a1 - c.a0) * (c.r1 * c.r1 - c.r0 * c.r0) / 2;
+    const n = Math.max(40, Math.round(area * 5400));
+    for (let i = 0; i < n; i++){
+      const ang = c.a0 + Math.random() * (c.a1 - c.a0);
+      const rad = Math.sqrt(c.r0 * c.r0 +
+        Math.random() * (c.r1 * c.r1 - c.r0 * c.r0));
+      const d = mkDot(.5, .5, c.i, c.anel < 2 ? "L" : "R", c.css, c.hot);
+      d.ang = ang - Math.PI / 2 - ANG / 2; d.rad = rad; d.pol = true;
+      DOTS.push(d);
+    }
+    // costura: arcos dos anéis e raios dos setores desenham a roda
+    for (let i = 0; i < 34; i++){
+      const ang = c.a0 + (i / 33) * (c.a1 - c.a0);
+      for (const rr of [c.r0, c.r1]){
+        const d = mkDot(.5, .5, c.i, "R", c.css, c.hot);
+        d.ang = ang - Math.PI / 2 - ANG / 2; d.rad = rr;
+        d.pol = true; d.edge = true; d.a = Math.min(.92, d.a * 1.6); d.r *= .82;
+        DOTS.push(d);
+      }
+    }
+    for (let i = 0; i < 16; i++){
+      const rad = c.r0 + (i / 15) * (c.r1 - c.r0);
+      const d = mkDot(.5, .5, c.i, "R", c.css, c.hot);
+      d.ang = c.a0 - Math.PI / 2 - ANG / 2; d.rad = rad;
+      d.pol = true; d.edge = true; d.a = Math.min(.9, d.a * 1.5); d.r *= .8;
+      DOTS.push(d);
+    }
+  }
+  DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 : 0);
+}
 function buildDots(){
+  if (MANDALA()) return buildMandalaDots();
+  if (SAMPLER()) return buildSamplerDots();
   if (PIANO()) return buildPianoDots();
   DOTS.length = 0;
   let tent = 0;
-  while (DOTS.length < N_DOTS && tent++ < N_DOTS * 90){
+  const alvo = AQUA() ? Math.round(N_DOTS * 1.75) : N_DOTS;
+  while (DOTS.length < alvo && tent++ < alvo * 90){
     const x = Math.random(), y = Math.random();
     if (y > .90 || y < (VERT() ? .12 : .09)) continue;  // faixa útil
     const dens = densityAt(x, y);
@@ -999,14 +1550,32 @@ function buildDots(){
     const ri = nearestString(side, x, y, VERT() ? .028 : .05);
     let fill, hot;
     if (ri >= 0){
-      const c = CELLS[side][ri * 2 + (VERT() ? (y > .50 ? 0 : 1)
+      const c = cellsOf(side)[ri * 2 + (VERT() ? (y > .50 ? 0 : 1)
           : (x < (side === "L" ? .25 : .75) ? 0 : 1))];
       fill = c.css; hot = c.hot;
     } else {
       fill = side === "L" ? "rgb(255,160,90)" : "rgb(130,215,255)";
       hot = side === "L" ? "rgb(255,120,40)" : "rgb(90,200,255)";
     }
-    DOTS.push(mkDot(x, y, ri, side, fill, hot));
+    const d = mkDot(x, y, ri, side, fill, hot);
+    if (AQUA()){
+      const c = ri >= 0 ? cellsOf(side)[ri * 2 +
+        (x < (side === "L" ? .25 : .75) ? 0 : 1)] : null;
+      /* em repouso a água é incolor: só um tom mais escuro que o fundo.
+         A cor da nota fica guardada e só acende quando a bolha é tocada. */
+      d.fill = ri >= 0 ? AQUA_REST : AQUA_REST_AMB;
+      d.tint = c ? c.aqua : "hsl(212,35%,48%)";
+      d.hot = c ? c.aquaHot : "hsl(212,62%,36%)";
+      // gama da água com gás: muitas miúdas, poucas graúdas
+      const u = Math.random();
+      d.r = .52 + Math.pow(u, 2.6) * (ri >= 0 ? 4.35 : 3.05);
+      d.bw = Math.max(.45, Math.min(1.05, d.r * .19));   // espessura do anel
+      d.a = .42 + Math.random() * .3 + (ri >= 0 ? .12 : 0);
+      d.bob = Math.random() * 6.28;                       // balanço na água
+      d.bsp = .5 + Math.random() * .9;
+      d.gloss = d.r > 2.1 && Math.random() < .6;          // brilho no ombro
+    }
+    DOTS.push(d);
   }
   // ordena por cor: minimiza trocas de fillStyle no render
   DOTS.sort((a, b) => a.fill < b.fill ? -1 : a.fill > b.fill ? 1 : 0);
@@ -1036,8 +1605,10 @@ function resetBg(){ bgModel = null; bgFrames = 0; }
    junta->punho — geometria pura, independente da luz da sala.
    Sem internet, o motor de luz continua como reserva automática. */
 var visionMode = "none";            // "mp" | "luz" | "none"
-var mpHands = null, pumpBusy = false;
+var mpHands = null, mpPose = null, pumpBusy = false;
+var engine = "hands";               // "hands" | "pose"
 const MP_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/hands";
+const MP_POSE = "https://cdn.jsdelivr.net/npm/@mediapipe/pose";
 const HAND_LINKS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],
   [9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],
   [18,19],[19,20],[0,17]];
@@ -1054,8 +1625,10 @@ function loadScript(src, ms){
   });
 }
 async function initMediaPipe(){
-  const ok = await loadScript(MP_CDN + "/hands.js", 12000);
-  if (!ok || !window.Hands) return false;
+  if (!window.Hands){
+    const ok = await loadScript(MP_CDN + "/hands.js", 12000);
+    if (!ok || !window.Hands) return false;
+  }
   try{
     mpHands = new window.Hands({ locateFile: f => MP_CDN + "/" + f });
     mpHands.setOptions({
@@ -1067,16 +1640,87 @@ async function initMediaPipe(){
     return true;
   }catch(e){ return false; }
 }
-function pump(){
-  if (!S.camOn || visionMode !== "mp") return;
-  if (!pumpBusy && video.readyState >= 2){
-    pumpBusy = true;
-    mpHands.send({ image: video })
-      .catch(() => {})
-      .finally(() => { pumpBusy = false; });
+/* ---------- vigia da visão ----------
+   Se um envio ao MediaPipe nunca retornar, o bombeamento não pode ficar
+   preso: passado o prazo, o envio é dado como perdido. E se os resultados
+   pararem de chegar de vez, o motor é reconstruído sozinho — sem precisar
+   recarregar a página. */
+var lastResultAt = 0, lastSendAt = 0, restarting = false, pumping = false;
+var visionRestarts = 0;
+const SEND_TIMEOUT = 1600, STALL_TIMEOUT = 4000;
+function activeModel(){ return engine === "pose" ? mpPose : mpHands; }
+async function initPose(){
+  if (!window.Pose){
+    const ok = await loadScript(MP_POSE + "/pose.js", 14000);
+    if (!ok || !window.Pose) return false;
   }
-  requestAnimationFrame(pump);
+  try{
+    mpPose = new window.Pose({ locateFile: f => MP_POSE + "/" + f });
+    mpPose.setOptions({
+      modelComplexity: 0, smoothLandmarks: true, selfieMode: true,
+      minDetectionConfidence: .5, minTrackingConfidence: .5,
+    });
+    mpPose.onResults(onPoseResults);
+    await mpPose.initialize();
+    return true;
+  }catch(e){ return false; }
 }
+/* troca o motor de visão sem recarregar a página */
+async function ensureEngine(kind){
+  if (engine === kind || restarting) return;
+  if (visionMode !== "mp"){ engine = kind; return; }
+  restarting = true; setCamState();
+  pumpBusy = false;
+  const ok = kind === "pose" ? (mpPose ? true : await initPose())
+                             : (mpHands ? true : await initMediaPipe());
+  if (ok) engine = kind;
+  lastResultAt = performance.now();
+  restarting = false;
+  setCamState();
+  if (ok) pump();
+}
+function pump(){
+  if (pumping) return;                 // um único laço, sempre
+  pumping = true;
+  if (!lastResultAt) lastResultAt = performance.now();
+  (function tick(){
+    if (!S.camOn || visionMode !== "mp"){ pumping = false; return; }
+    const now = performance.now();
+    if (pumpBusy && now - lastSendAt > SEND_TIMEOUT) pumpBusy = false;  // perdido
+    if (video.paused) { try{ video.play(); }catch(e){} }
+    const modelo = activeModel();
+    if (!pumpBusy && modelo && !restarting && video.readyState >= 2){
+      pumpBusy = true; lastSendAt = now;
+      let settled = false;
+      const done = () => { if (!settled){ settled = true; pumpBusy = false; } };
+      try{
+        const pr = modelo.send({ image: video });
+        if (pr && pr.then) pr.then(done, done); else done();
+      }catch(e){ done(); }
+      setTimeout(done, SEND_TIMEOUT);   // rede de segurança
+    }
+    if (!restarting && now - lastResultAt > STALL_TIMEOUT) restartVision();
+    requestAnimationFrame(tick);
+  })();
+}
+async function restartVision(){
+  if (restarting) return;
+  restarting = true; visionRestarts++;
+  setCamState();
+  const velho = mpHands;
+  mpHands = null; pumpBusy = false;
+  try{ if (velho && velho.close) await velho.close(); }catch(e){}
+  let ok = false;
+  try{ ok = await initMediaPipe(); }catch(e){ ok = false; }
+  lastResultAt = performance.now();
+  restarting = false;
+  if (!ok){ visionMode = "luz"; resetBg(); }
+  setCamState();
+}
+/* voltar para a aba não pode ser confundido com travamento */
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden){ lastResultAt = performance.now(); pumpBusy = false; }
+});
 
 /* flexão medida DENTRO do próprio dedo: ponta e junta média em relação
    à junta da base (MCP). Não depende do punho — que sai do quadro quando
@@ -1098,7 +1742,7 @@ function processPluck(h, ratio, now){
   const prev = h.curl;
   h.curl = h.curl * .18 + ratio * .82;        // pouca inércia = pouca latência
   const vel = (h.curl - prev) / dt;           // <0 dobrando · >0 esticando
-  h.ref = Math.max(h.curl, (h.ref || h.curl) * .994, 1.05);
+  h.ref = Math.min(3.6, Math.max(h.curl, (h.ref || h.curl) * .99, 1.05));
   if (h.curl > h.ref * .93) h.ext = true;                        // rearmou
   const fecha = h.curl < h.ref * .80 ||
                 (vel < -1.2 && h.curl < h.ref * .90);
@@ -1155,7 +1799,16 @@ function assignHand(lm, side, now){
     const gate = Math.max(1.02, (f.ref || 1.2) * .88);
     if (f.curl > gate && ratio > gate){
       let ri, cell;
-      if (PIANO()){
+      if (SAMPLER()){
+        if (faderAt(side, f.rx, f.ry)){             // fader: nenhuma nota
+          if (fi === 0) moveFader(side, f.rx);
+          f.aim = null; f.brow = -1; ri = -1;
+        } else {
+          cell = padAt(side, f.rx, f.ry);
+          ri = cell;
+          if (cell < 0){ f.aim = null; f.brow = -1; }
+        }
+      } else if (PIANO()){
         cell = keyAt(side, f.rx, f.ry);             // -1 na faixa neutra
         ri = cell;
         if (cell < 0){ f.aim = null; f.brow = -1; }   // repouso: armado p/ soar ao entrar
@@ -1171,7 +1824,7 @@ function assignHand(lm, side, now){
         // núcleo dela; mesma corda dispara no cruzamento da célula
         if (cell !== f.brow && now - (f.bcool || 0) > 45){
           const mudouCorda = f.brow === null || cellRow(f.brow) !== ri;
-          const perto = PIANO() ? true
+          const perto = (PIANO() || SAMPLER()) ? true
             : VERT()
               ? Math.abs(f.x - strPos(side, ri)) < .026
               : Math.abs(f.y - rowY(ri)) < .038;
@@ -1191,6 +1844,7 @@ function assignHand(lm, side, now){
 function onHandResults(results){
   const det = results.multiHandLandmarks || [];
   const now = performance.now();
+  lastResultAt = now;
   if (det.length === 1){
     assignHand(det[0], det[0][8].x < .5 ? "L" : "R", now);
   } else if (det.length >= 2){
@@ -1202,7 +1856,7 @@ function onHandResults(results){
 function expireHands(now){
   for (const side of ["L", "R"]){
     const h = hands[side];
-    if (h.on && now - h.seen > 280){
+    if (h.on && now - h.seen > 420){
       h.on = false; h.aim = null; h.lm = null; h.vibE = 0;
       for (const f of h.fingers){ f.aim = null; f.brow = null; f.col = null; }
     }
@@ -1226,7 +1880,7 @@ async function startCamera(){
     const mpOk = await initMediaPipe();
     visionMode = mpOk ? "mp" : "luz";
     setCamState();
-    if (mpOk) pump();
+    if (mpOk){ lastResultAt = performance.now(); pump(); }
   }catch(err){
     const e = document.getElementById("introErr");
     e.style.display = "block";
@@ -1327,7 +1981,10 @@ function trackHands(mask, dt){
     h.glow = Math.min(1, h.glow + .15);
     // mira: com o dedo calmo, a corda mais próxima fica selecionada
     if (Math.abs(h.vy) < .3){
-      if (PIANO()){
+      if (SAMPLER()){
+        if (faderAt(hand, h.x, h.y)){ moveFader(hand, h.x); h.aim = null; }
+        else { const k = padAt(hand, h.x, h.y); h.aim = k >= 0 ? k : null; }
+      } else if (PIANO()){
         const k = keyAt(hand, h.x, h.y);
         h.aim = k >= 0 ? k : null;
       } else {
@@ -1354,7 +2011,11 @@ function pointerPlay(ev, isDown){
   const h = hands[hand];
   h.x = x; h.y = y; h.on = true; h.glow = 1;
   let cell;
-  if (PIANO()){
+  if (SAMPLER()){
+    if (faderAt(hand, x, y)){ moveFader(hand, x); h.aim = null; h.mrow = null; return; }
+    cell = padAt(hand, x, y);
+    if (cell < 0){ h.aim = null; h.mrow = null; return; }
+  } else if (PIANO()){
     cell = keyAt(hand, x, y);
     if (cell < 0){ h.aim = null; h.mrow = null; return; }
   } else {
@@ -1396,18 +2057,27 @@ function draw(){
   const W = stage.width, H = stage.height;
   const dpr = devicePixelRatio;
   sctx.setTransform(1, 0, 0, 1, 0, 0);
-  sctx.fillStyle = "#04050a";
+  const aqua = AQUA();
+  if (aqua){
+    const g = sctx.createLinearGradient(0, 0, W * .35, H);
+    g.addColorStop(0, "#f4f7fc");
+    g.addColorStop(.55, "#e8eefa");
+    g.addColorStop(1, "#dde6f5");
+    sctx.fillStyle = g;
+  } else sctx.fillStyle = "#04050a";
   sctx.fillRect(0, 0, W, H);
 
   // câmara de temperatura: quente embaixo-esquerda, fria em cima-direita
   beatPulse *= Math.pow(.5, dt / .1);
   const bp = beatPulse;
   const gl = sctx.createRadialGradient(W*.18, H*.8, 0, W*.18, H*.8, W*.5);
-  gl.addColorStop(0, "rgba(255,138,61," + (.05 + .045 * bp) + ")");
+  gl.addColorStop(0, aqua ? "rgba(120,175,235," + (.10 + .06 * bp) + ")"
+                          : "rgba(255,138,61," + (.05 + .045 * bp) + ")");
   gl.addColorStop(1, "transparent");
   sctx.fillStyle = gl; sctx.fillRect(0, 0, W, H);
   const gr = sctx.createRadialGradient(W*.82, H*.3, 0, W*.82, H*.3, W*.5);
-  gr.addColorStop(0, "rgba(111,227,255," + (.05 + .045 * bp) + ")");
+  gr.addColorStop(0, aqua ? "rgba(255,255,255," + (.4 + .2 * bp) + ")"
+                          : "rgba(111,227,255," + (.05 + .045 * bp) + ")");
   gr.addColorStop(1, "transparent");
   sctx.fillStyle = gr; sctx.fillRect(0, 0, W, H);
 
@@ -1416,7 +2086,7 @@ function draw(){
   let mask = null;
   const heatPts = [];
   if (S.camOn){
-    if (visionMode === "mp"){
+    if (visionMode === "mp" && !CORPO()){
       expireHands(now);
       for (const side of ["L", "R"]){
         const h = hands[side];
@@ -1434,8 +2104,9 @@ function draw(){
   // vídeo de fundo, mais presente para orientação
   if (S.camOn && video.readyState >= 2){
     sctx.save();
-    sctx.globalAlpha = .13;
-    sctx.filter = "grayscale(1) brightness(.8) contrast(1.08)";
+    sctx.globalAlpha = aqua ? .10 : .13;
+    sctx.filter = aqua ? "grayscale(1) brightness(1.25) contrast(.75)"
+                       : "grayscale(1) brightness(.8) contrast(1.08)";
     sctx.translate(W, 0); sctx.scale(-1, 1);
     const vw = video.videoWidth, vh = video.videoHeight;
     const vs = Math.max(W / vw, H / vh);
@@ -1494,11 +2165,21 @@ function draw(){
   const decay = Math.exp(-dt * 3.2);
   let lastFill = null, lastFB = -1;
   const glyphs = GLYPH();
+  if (aqua){ sctx.lineCap = "round"; }
   if (glyphs){ sctx.textAlign = "center"; sctx.textBaseline = "middle"; }
   {
     for (const p of DOTS){
       const side = p.side;
-      if (p.fill !== lastFill){ sctx.fillStyle = p.fill; lastFill = p.fill; }
+      if (p.pol){                            // a roda gira em torno de você
+        const ar = innerWidth / innerHeight;
+        p.x = centro.x + Math.cos(p.ang) * p.rad / ar;
+        p.y = centro.y + Math.sin(p.ang) * p.rad;
+      }
+      if (p.fill !== lastFill){
+        sctx.fillStyle = p.fill;
+        if (aqua) sctx.strokeStyle = p.fill;
+        lastFill = p.fill;
+      }
       // calor: a mão acende a poeira por onde passa (blueprint §9)
       if (mask){
         const mx = Math.min(AW - 1, p.x * AW | 0);
@@ -1519,6 +2200,7 @@ function draw(){
       } else p.heat *= decay;
       // onda da nota correndo pela corda
       let glow = 0;
+      if (p.pol && p.ri >= 0) glow = Math.max(glow, (mPulse[p.ri] || 0) * .85);
       if (p.ri >= 0){
         for (const w of activeWaves){
           if (w.hand !== p.side || w.row !== p.ri) continue;
@@ -1526,7 +2208,7 @@ function draw(){
           const dd = Math.abs(Math.abs(aw - w.x) - w.front);
           if (dd < .09) glow = Math.max(glow, Math.exp(-(dd*dd)/(2*.028*.028)) * w.fade);
         }
-        glow = Math.max(glow, rowPulse[p.side][p.ri] * .35);
+        glow = Math.max(glow, (rowPulse[p.side][p.ri] || 0) * .35);
       }
       // ---- deslocamento físico (orientável) ----
       let dxN = 0, dyN = 0;
@@ -1590,7 +2272,37 @@ function draw(){
       const al = Math.min(1, p.a + Math.sin(t*.8 + p.p1)*.06 + p.heat*.55 + glow*.8
         + beatPulse * .06);
       sctx.globalAlpha = al;
-      if (glyphs && p.ch){
+      if (aqua){
+        /* bolha: anel fino e balanço na água. Em repouso é incolor —
+           a cor da nota só acende sob o toque, e volta a apagar sozinha. */
+        const bob = Math.sin(t * p.bsp + p.bob);
+        const br = rr * (1 + bob * .045);
+        const act = Math.max(p.heat, glow);
+        const by = py + bob * .6 * dpr;
+        if (act > .05){
+          sctx.strokeStyle = act > .55 ? p.hot : p.tint;
+          lastFill = null;                       // próxima bolha volta ao repouso
+          sctx.globalAlpha = Math.min(1, al + act * .45);
+          sctx.lineWidth = p.bw * dpr * (1 + act * 1.1);
+        } else {
+          sctx.lineWidth = p.bw * dpr;
+        }
+        sctx.beginPath();
+        sctx.arc(px, by, br, 0, 6.2832);
+        sctx.stroke();
+        if (act > .12){
+          sctx.fillStyle = p.tint;
+          sctx.globalAlpha = al * .34 * act;
+          sctx.beginPath();
+          sctx.arc(px, by, br, 0, 6.2832);
+          sctx.fill();
+        } else if (p.gloss){
+          sctx.globalAlpha = al * .45;
+          sctx.beginPath();
+          sctx.arc(px - br * .34, py - br * .36, Math.max(.4, br * .18), 0, 6.2832);
+          sctx.fill();
+        }
+      } else if (glyphs && p.ch){
         if (p.fb !== lastFB){
           sctx.font = "600 " + (GFONT[p.fb] * dpr) +
             "px ui-monospace, SFMono-Regular, monospace";
@@ -1607,9 +2319,9 @@ function draw(){
     }
   }
   // passe aditivo: a versão incandescente da cor de cada célula
-  sctx.globalCompositeOperation = "lighter";
+  if (!aqua) sctx.globalCompositeOperation = "lighter";
   for (const hd of heatDots){
-    sctx.globalAlpha = hd[3] * (glyphs && hd[5] ? .55 : .35);
+    sctx.globalAlpha = hd[3] * (aqua ? .5 : (glyphs && hd[5] ? .55 : .35));
     sctx.fillStyle = hd[4];
     if (glyphs && hd[5]){
       if (hd[6] !== lastFB){
@@ -1618,6 +2330,12 @@ function draw(){
         lastFB = hd[6];
       }
       sctx.fillText(hd[5], hd[0], hd[1]);
+    } else if (aqua){
+      sctx.lineWidth = 1.4 * dpr;
+      sctx.strokeStyle = hd[4];
+      sctx.beginPath();
+      sctx.arc(hd[0], hd[1], hd[2] * 1.5, 0, 6.2832);
+      sctx.stroke();
     } else {
       sctx.beginPath();
       sctx.arc(hd[0], hd[1], hd[2] * 1.6, 0, 6.2832);
@@ -1635,8 +2353,85 @@ function draw(){
       rowPulse[side][rw] = Math.max(rowPulse[side][rw], h.vibE * .4);
     }
   }
+  if (MANDALA()){
+    for (let i = 0; i < mPulse.length; i++) mPulse[i] *= Math.pow(.5, dt / .22);
+    for (let i = mWaves.length - 1; i >= 0; i--)
+      if (now - mWaves[i].t0 > 900) mWaves.splice(i, 1);
+    // nome da nota no miolo de cada célula
+    sctx.textAlign = "center"; sctx.textBaseline = "middle";
+    sctx.font = (9 * dpr) + "px ui-monospace, monospace";
+    for (const c of MCELLS){
+      const pu = mPulse[c.i] || 0;
+      const pt = polarPara((c.a0 + c.a1) / 2 + Math.PI / 2 + ANG / 2,
+        (c.r0 + c.r1) / 2);
+      sctx.fillStyle = "hsla(" + c.hue + ",84%," +
+        Math.min(90, c.l + 26) + "%," + (.32 + pu * .6) + ")";
+      sctx.fillText(c.nome, pt.x * W, pt.y * H);
+    }
+    // miolo: o centro que segue o seu tronco
+    const cx0 = centro.x * W, cy0 = centro.y * H;
+    sctx.save();
+    sctx.globalCompositeOperation = "lighter";
+    const gc = sctx.createRadialGradient(cx0, cy0, 0, cx0, cy0, R0 * H);
+    gc.addColorStop(0, "rgba(200,220,255,.16)");
+    gc.addColorStop(1, "transparent");
+    sctx.fillStyle = gc;
+    sctx.beginPath(); sctx.arc(cx0, cy0, R0 * H, 0, 6.2832); sctx.fill();
+    sctx.restore();
+  }
+  // constelação do CORPO: ossos em traço fino, articulações em pontos,
+  // e os efetores (punhos, pés, cabeça) como faróis coloridos
+  if (CORPO()){
+    expireCorpo(now);
+    if (corpo.on && corpo.lm){
+      const lm = corpo.lm;
+      sctx.save();
+      sctx.globalCompositeOperation = "lighter";
+      sctx.strokeStyle = "rgba(150,175,220,.30)";
+      sctx.lineWidth = 1.3 * dpr;
+      sctx.beginPath();
+      for (const o of OSSOS){
+        const a = lm[o[0]], b = lm[o[1]];
+        if (!a || !b) continue;
+        sctx.moveTo(a.x * W, a.y * H);
+        sctx.lineTo(b.x * W, b.y * H);
+      }
+      sctx.stroke();
+      sctx.fillStyle = "rgba(170,195,235,.45)";
+      for (let i = 0; i < lm.length; i++){
+        const q = lm[i];
+        if (!q || (q.visibility !== undefined && q.visibility < .4)) continue;
+        sctx.beginPath();
+        sctx.arc(q.x * W, q.y * H, 1.7 * dpr, 0, 6.2832);
+        sctx.fill();
+      }
+      for (const e of EFET){
+        if (e.vis < .45) continue;
+        const cor = e.papel === "perc" ? "255,150,80"
+                  : e.papel === "bass" ? "255,120,160" : "130,220,255";
+        const cx = e.x * W, cy = e.y * H;
+        const rr = (e.peso > .8 ? 15 : 9) * dpr;
+        const g = sctx.createRadialGradient(cx, cy, 0, cx, cy, rr);
+        g.addColorStop(0, "rgba(" + cor + ",.55)");
+        g.addColorStop(1, "transparent");
+        sctx.fillStyle = g;
+        sctx.beginPath(); sctx.arc(cx, cy, rr, 0, 6.2832); sctx.fill();
+        sctx.fillStyle = "rgba(255,255,255,.8)";
+        sctx.beginPath();
+        sctx.arc(cx, cy, (e.peso > .8 ? 2.6 : 1.8) * dpr, 0, 6.2832);
+        sctx.fill();
+      }
+      sctx.restore();
+    } else {
+      sctx.fillStyle = "rgba(160,180,215,.5)";
+      sctx.font = (12 * dpr) + "px ui-monospace, monospace";
+      sctx.textAlign = "center"; sctx.textBaseline = "middle";
+      sctx.fillText("afaste-se da câmera até o corpo inteiro aparecer",
+        W / 2, H * .5);
+    }
+  }
   // constelação: o mapa da mão desenhado em pontos e traços finos
-  if (visionMode === "mp"){
+  if (visionMode === "mp" && !CORPO()){
     sctx.save();
     sctx.globalCompositeOperation = "lighter";
     for (const side of ["L", "R"]){
@@ -1665,6 +2460,17 @@ function draw(){
       for (const f of h.fingers){
         if (f.aim !== null && f.curl > 1.05){
           sctx.lineWidth = 2 * dpr;
+          if (SAMPLER()){
+            const pd = PADS[side][f.aim];
+            if (pd){
+              sctx.strokeStyle = "hsla(" + pd.hue + ",80%,72%,.7)";
+              sctx.beginPath();
+              sctx.moveTo(pd.x0 * W + 4 * dpr, pd.y1 * H);
+              sctx.lineTo(pd.x1 * W - 4 * dpr, pd.y1 * H);
+              sctx.stroke();
+            }
+            continue;
+          }
           if (PIANO()){
             const k = KEYS[side][f.aim];
             if (k){
@@ -1701,6 +2507,40 @@ function draw(){
     sctx.restore();
   }
 
+  // Sampler: nome de cada pad e a cabeça do fader
+  if (SAMPLER()){
+    sctx.textBaseline = "middle"; sctx.textAlign = "center";
+    sctx.font = (8.5 * dpr) + "px ui-monospace, monospace";
+    for (const side of ["L", "R"]){
+      for (const pd of PADS[side]){
+        const pu = rowPulse[side][pd.i] || 0;
+        sctx.fillStyle = "hsla(" + pd.hue + "," + (pd.s + 12) + "%," +
+          Math.min(88, pd.l + 30) + "%," + (.45 + pu * .55) + ")";
+        sctx.fillText(pd.name, pd.cx * W, (pd.y1 - .016) * H);
+      }
+      const f = FADER[side];
+      f.live *= .93;
+      const fx = (f.x0 + (f.x1 - f.x0) * f.val) * W;
+      sctx.save();
+      sctx.globalCompositeOperation = "lighter";
+      const g = sctx.createRadialGradient(fx, f.cy * H, 0, fx, f.cy * H, 42 * dpr);
+      g.addColorStop(0, "rgba(150,220,255," + (.30 + f.live * .5) + ")");
+      g.addColorStop(1, "transparent");
+      sctx.fillStyle = g;
+      sctx.fillRect(fx - 42*dpr, (f.y0 - .04) * H, 84*dpr, (f.y1 - f.y0 + .08) * H);
+      sctx.restore();
+      // haste da cabeça
+      sctx.strokeStyle = "rgba(190,235,255," + (.5 + f.live * .45) + ")";
+      sctx.lineWidth = 2.4 * dpr;
+      sctx.beginPath();
+      sctx.moveTo(fx, (f.y0 - .012) * H); sctx.lineTo(fx, (f.y1 + .012) * H);
+      sctx.stroke();
+      sctx.fillStyle = "rgba(150,200,235,.45)";
+      sctx.font = (8 * dpr) + "px ui-monospace, monospace";
+      sctx.fillText(side === "L" ? "FILTRO · BATERIA" : "FILTRO · NOTAS",
+        (f.x0 + f.x1) / 2 * W, f.y0 * H - 11 * dpr);
+    }
+  }
   // nomes das notas em cada célula, pintados com a cor da altura
   sctx.textBaseline = "middle"; sctx.textAlign = "center";
   sctx.font = (9.5 * dpr) + "px ui-monospace, monospace";
@@ -1732,9 +2572,9 @@ function draw(){
     sctx.setLineDash([]);
   }
   for (const side of ["L", "R"]){
-    const nMax = PIANO() ? 0 : NCELLS;
+    const nMax = (PIANO() || SAMPLER()) ? 0 : NCELLS;
     for (let n = 0; n < nMax; n++){
-      const c = CELLS[side][n];
+      const c = cellsOf(side)[n];
       const row = n >> 1, col = n & 1;
       let cx, y;
       if (!VERT()){
@@ -1744,10 +2584,14 @@ function draw(){
         cx = strPos(side, row) * W;
         y = (col ? .245 : .715) * H;   // embaixo = nota-âncora
       }
-      const a = .38 + rowPulse[side][row] * .55;
-      sctx.fillStyle = "hsla(" + c.hue + "," + c.s + "%," +
-        Math.min(82, c.l + 14) + "%," + a + ")";
+      const pulso = rowPulse[side][row];
+      const a = .38 + pulso * .55;
+      sctx.fillStyle = AQUA()
+        ? (pulso > .06 ? c.aquaHot : AQUA_REST)     // cor só quando soa
+        : "hsla(" + c.hue + "," + c.s + "%," + Math.min(82, c.l + 14) + "%," + a + ")";
+      sctx.globalAlpha = AQUA() ? Math.min(1, .5 + pulso * .5) : 1;
       sctx.fillText(c.name, cx, y);
+      sctx.globalAlpha = 1;
     }
   }
   // cursor de cada mão
@@ -1761,7 +2605,16 @@ function draw(){
     // mira: segmento da corda acende na cor da célula selecionada
     if (h.on && h.aim !== null){
       sctx.lineWidth = 2.2 * dpr;
-      if (PIANO()){
+      if (SAMPLER()){
+        const pd = PADS[hand][h.aim];
+        if (pd){
+          sctx.strokeStyle = "hsla(" + pd.hue + "," + (pd.s + 20) + "%," +
+            Math.min(88, pd.l + 30) + "%," + (.85 * h.glow) + ")";
+          sctx.lineWidth = 2.4 * dpr;
+          sctx.strokeRect(pd.x0 * W, pd.y0 * H,
+            (pd.x1 - pd.x0) * W, (pd.y1 - pd.y0) * H);
+        }
+      } else if (PIANO()){
         const k = KEYS[hand][h.aim];
         if (k){
           sctx.strokeStyle = keyRGBA(hand, h.aim, .7 * h.glow);
@@ -1843,7 +2696,10 @@ function setCamState(){
   ui.camState.classList.toggle("rec", S.recording);
   ui.camStateTxt.textContent = S.recording ? "gravando" :
     !S.camOn ? "modo mouse" :
-    visionMode === "mp" ? "mapa da mão ativo" :
+    restarting ? (CORPO() ? "carregando o corpo…" : "reconectando a mão…") :
+    visionMode === "mp" ? (CORPO()
+      ? (corpo.on ? "corpo rastreado" : "procurando o corpo…")
+      : "mapa da mão ativo") :
     visionMode === "luz" ? "modo luz (sem mapa)" : "carregando mapa da mão…";
 }
 document.getElementById("btnStart").addEventListener("click", startCamera);
@@ -1913,6 +2769,7 @@ chipGroup("soundChips", [
   ["Cordas", "cordas", "Guitarra dedilhada e contrabaixo acústico"],
   ["Piano", "piano", "Piano nas duas mãos, com martelo e cauda"],
   ["Fuzz", "fuzz", "Distorção — solo rasgado e baixo sujo"],
+  ["Gotas", "gota", "Gotas d'água — o \u201Cplic\u201D da bolha, cristalino"],
 ], () => S.timbre, v => { S.timbre = v; });
 chipGroup("orientChips", [
   ['<span class="ic">\u25A5</span>Teclas', "p",
@@ -1921,12 +2778,26 @@ chipGroup("orientChips", [
    "Mesmo teclado, escrito com as letras das notas (A B C D E F G)"],
   ['<span class="ic">\u2194</span>Cordas', "h",
    "Cordas deitadas — a altura da mão escolhe a corda"],
+  ['<span class="ic">\u2739</span>Mandala', "m",
+   "Dança em roda: 7 setores em terças e 4 anéis em quintas ao redor do seu corpo"],
+  ['<span class="ic">\u263A</span>Corpo', "b",
+   "Dance: os pés fazem a batida, os braços a melodia e a cabeça o grave"],
+  ['<span class="ic">\u25A6</span>Sampler', "s",
+   "Grade 4x4 de pads: bateria na esquerda, notas na direita, fader de filtro embaixo"],
+  ['<span class="ic">\u25CB</span>Água', "a",
+   "Cordas de bolhas em água com gás — fundo claro, tudo em anéis"],
+  ['<span class="ic">\u266A</span>Quintas', "q",
+   "Cordas deitadas em Ré menor, subindo pelo ciclo das quintas — toda nota é da escala"],
   ['<span class="ic">\u2195</span>Harpa', "v",
    "Harpa — cordas em pé, graves à esquerda, agudos à direita"],
 ], () => S.orient, v => setOrient(v));
 function setOrient(o){
   if (S.orient === o) return;
   S.orient = o;
+  if (document.body && document.body.classList)
+    document.body.classList.toggle("aqua", o === "a");
+  if (o === "s") buildPads();          // remede o painel na hora de entrar
+  ensureEngine(o === "b" ? "pose" : "hands");
   plucks.length = 0; waves.length = 0;
   for (const sd of ["L", "R"]){
     hands[sd].aim = null; hands[sd].mrow = null;
